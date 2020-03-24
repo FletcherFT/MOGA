@@ -1,2 +1,2 @@
 # MOGA
-A python repository for implmenting multi-objective genetic algorithms (MOGAs).
+A python repository for implementing multi-objective genetic algorithms (MOGAs).
