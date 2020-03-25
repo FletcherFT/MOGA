@@ -36,16 +36,16 @@ class Solver:
         solutions with white noise added."""
         return solutions + self._m * np.random.randn()
 
-    def _xover(self, fitnesses, solutions):
+    def _xover(self, solutions):
         """Default behaviour is just to return the solutions."""
-        return fitnesses, solutions
+        return solutions
 
     def _selection(self, solutions):
         """Must be replaced by a function that outputs a subset of fitnesses and solutions as parents."""
         raise Exception("The selection method needs to be either overrided or a valid function handle needs to be "
                         "passed as selection keyword during construction.")
 
-    def _survival(self, fitnesses, solutions):
+    def _survival(self, solutions):
         """Must be replaced by a function that outputs a subset of solutions and fitnesses as survivors."""
         raise Exception("The survival method needs to be either overrided or a valid function handle needs to be "
                         "passed as survival keyword during construction.")
@@ -60,11 +60,11 @@ class Solver:
         # Get the fitness of the proposed solutions
         fitnesses = self._fitness(solutions)
         # Select the parents
-        p_fitnesses, parents = self._selection(fitnesses, solutions)
+        parents = self._selection(fitnesses, solutions)
         # Obtain children from the parents
-        children = self._mutate(self._xover(p_fitnesses, parents))
+        children = self._mutate(self._xover(parents))
         # Get the fitness of the children
-        c_fitnesses = self._fitness(children)
+        c_fitness = self._fitness(children)
         # Apply survival and return the updated solutions.
-        return self._survival(np.hstack((parents, children)), np.hstack((fitnesses, c_fitnesses)))
+        return self._survival(np.hstack((parents, children)), np.hstack((fitnesses, c_fitness)))
 
