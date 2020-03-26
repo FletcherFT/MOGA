@@ -64,7 +64,7 @@ if __name__ == "__main__":
     # The Logger Class
     logger = utils.ResultsManager()
     # Number of generations
-    for i in range(10):
+    for i in range(1000):
         print("Iteration {:04d}".format(i + 1))
         chromosones, fitnesses = solver.update(chromosones, cost=CURRENT[1])
         logger.update(fitnesses, ["Distance", "Energy"], linestyle="None", marker=".", markersize=10, color="green")
