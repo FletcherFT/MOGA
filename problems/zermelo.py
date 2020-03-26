@@ -13,14 +13,16 @@ def plot_results(solutions, cost):
         plt.plot(range(cost.shape[1]), solution)
 
 
-def fitness(solutions, cost):
+def fitness(solutions, cost, maxdx):
     # The transect is a range from 0 to GRID_HEIGHT-1
     Y = np.array(range(cost.shape[1]))
-    # There are two fitnesses, time and energy
-    fitnesses = np.zeros((solutions.shape[0], 2))
+    # There are two objective fitnesses, time and energy
+    objective_fitnesses = np.zeros((solutions.shape[0], 2))
+    # There is one constraint fitness, max traversal distance.
+    constraint_fitnesses = np.zeros((solutions.shape[0], 1))
     for i, X in enumerate(solutions):
         # The time cost is proportional to the distance travelled along the path.
-        fitnesses[i, 0] = np.diag(cdist(np.vstack((X[:-1], Y[:-1])).T,
+        objective_fitnesses[i, 0] = np.diag(cdist(np.vstack((X[:-1], Y[:-1])).T,
                                         np.vstack((X[1:], Y[1:])).T)).sum()
         # The estimated grid frame speed (x component)
         # Negative U means travelling downstream
@@ -28,8 +30,12 @@ def fitness(solutions, cost):
         # The current velocity at each visited tile
         v = cost[X, Y]
         # The effort is U*v with a condition that U*v == 0 is v
-        fitnesses[i, 1] = np.where(U * v == 0, v, U * v).sum()
-    return fitnesses
+        objective_fitnesses[i, 1] = np.where(U * v == 0, v, U * v).sum()
+        # Constraint: reduce allowed distance between each point.
+        dX = np.abs(np.diff(X))
+        constraint_fitnesses[i, 0] = (dX > maxdx).sum()
+
+    return objective_fitnesses, constraint_fitnesses
 
 
 if __name__ == "__main__":
@@ -62,10 +68,12 @@ if __name__ == "__main__":
     # The Solver Class
     solver = ndsa1.NDSA1(N, fitness=fitness)
     # The Logger Class
-    logger = utils.ResultsManager()
+    objective_logger = utils.ResultsManager()
+    constraint_logger = utils.ResultsManager()
     # Number of generations
     for i in range(1000):
         print("Iteration {:04d}".format(i + 1))
-        chromosones, fitnesses = solver.update(chromosones, cost=CURRENT[1])
-        logger.update(fitnesses, ["Distance", "Energy"], linestyle="None", marker=".", markersize=10, color="green")
+        chromosones, fitnesses, constraints = solver.update(chromosones, cost=CURRENT[1], maxdx=1)
+        objective_logger.update(fitnesses, ["Distance", "Energy"], linestyle="None", marker=".", markersize=10, color="green")
+        constraint_logger.update(constraints, ["Overtravel"], linestyle="None", marker=".", markersize=10, color="green")
     plot_results(chromosones, CURRENT[1])
