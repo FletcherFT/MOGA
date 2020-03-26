@@ -12,12 +12,15 @@ class ResultsManager:
         self._axes = None
         self._log = None
         self._plots = []
+        self._i = 0
 
     def update(self, A, names, **kwargs):
         _, numvars = A.shape
+        self._i += 1
         names.reverse()
         if self._F is None:
             self._F, self._axes = plt.subplots(nrows=numvars, ncols=numvars, figsize=(8, 8))
+            self._F.suptitle("Generation {:15d}".format(self._i))
             self._F.subplots_adjust(hspace=0.05, wspace=0.05)
             for ax in self._axes.flat:
                 # Hide all ticks and labels
@@ -56,6 +59,7 @@ class ResultsManager:
                 self._plots[c].axes.set_xlim(xmin=A[:, x].min(), xmax=A[:, x].max())
                 self._plots[c].axes.set_ylim(ymin=A[:, y].min(), ymax=A[:, y].max())
                 c += 1
+        self._F.suptitle("Generation {:15d}".format(self._i))
         self._F.canvas.draw()
         self._F.canvas.flush_events()
 
