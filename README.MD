@@ -24,3 +24,11 @@ A python repository for implementing multi-objective genetic algorithms (MOGAs).
     - Exploration
         1. Mutation function: add new strategies.
         2. Xover function: probably fine.
+        
+### Implementation 2
+- Branch: znp-imp2
+- Description
+    - Solutions randomly initialised (start/finish bounds enforced).
+    - One solution seeded with straight-line solution.
+    - Distance and energy objective fitness.
+    - Max traverse distance as constraint fitness.
