@@ -22,43 +22,52 @@ class ResultsManager:
             self._F, self._axes = plt.subplots(nrows=numvars, ncols=numvars, figsize=(8, 8))
             self._F.suptitle("Generation {:15d}".format(self._i))
             self._F.subplots_adjust(hspace=0.05, wspace=0.05)
-            for ax in self._axes.flat:
-                # Hide all ticks and labels
-                ax.xaxis.set_visible(False)
-                ax.yaxis.set_visible(False)
-                # Set up ticks only on one side for the "edge" subplots...
-                if ax.is_first_col():
-                    ax.yaxis.set_ticks_position('left')
-                if ax.is_last_col():
-                    ax.yaxis.set_ticks_position('right')
-                if ax.is_first_row():
-                    ax.xaxis.set_ticks_position('top')
-                if ax.is_last_row():
-                    ax.xaxis.set_ticks_position('bottom')
-            # Label the diagonal subplots...
-            for i, label in enumerate(names):
-               self._axes[i, i].annotate(label, (0.5, 0.5), xycoords='axes fraction',
-                                         ha='center', va='center')
-            # Turn on the proper x or y axes ticks.
-            for i, j in zip(range(numvars), itertools.cycle((-1, 0))):
-               self._axes[j, i].xaxis.set_visible(True)
-               self._axes[i, j].yaxis.set_visible(True)
-            # Plot the data.
-            for i, j in zip(*np.triu_indices_from(self._axes, k=1)):
-                for x, y in [(i, j), (j, i)]:
-                    p = self._axes[x, y].plot(A[:, x], A[:, y], **kwargs)
-                    self._plots += p
+            if numvars > 1:
+                for ax in self._axes.flat:
+                    # Hide all ticks and labels
+                    ax.xaxis.set_visible(False)
+                    ax.yaxis.set_visible(False)
+                    # Set up ticks only on one side for the "edge" subplots...
+                    if ax.is_first_col():
+                        ax.yaxis.set_ticks_position('left')
+                    if ax.is_last_col():
+                        ax.yaxis.set_ticks_position('right')
+                    if ax.is_first_row():
+                        ax.xaxis.set_ticks_position('top')
+                    if ax.is_last_row():
+                        ax.xaxis.set_ticks_position('bottom')
+                # Label the diagonal subplots...
+                for i, label in enumerate(names):
+                   self._axes[i, i].annotate(label, (0.5, 0.5), xycoords='axes fraction',
+                                             ha='center', va='center')
+                # Turn on the proper x or y axes ticks.
+                for i, j in zip(range(numvars), itertools.cycle((-1, 0))):
+                   self._axes[j, i].xaxis.set_visible(True)
+                   self._axes[i, j].yaxis.set_visible(True)
+                # Plot the data.
+                for i, j in zip(*np.triu_indices_from(self._axes, k=1)):
+                    for x, y in [(i, j), (j, i)]:
+                        p = self._axes[x, y].plot(A[:, x], A[:, y], **kwargs)
+                        self._plots += p
+            else:
+                self._plots = self._axes.plot(A, A, **kwargs)
             self._F.canvas.draw()
             self._F.canvas.flush_events()
             return
         c = 0
-        for i, j in zip(*np.triu_indices_from(self._axes, k=1)):
-            for x, y in [(i, j), (j, i)]:
-                self._plots[c].set_xdata(A[:, x])
-                self._plots[c].set_ydata(A[:, y])
-                self._plots[c].axes.set_xlim(xmin=A[:, x].min(), xmax=A[:, x].max())
-                self._plots[c].axes.set_ylim(ymin=A[:, y].min(), ymax=A[:, y].max())
-                c += 1
+        if numvars > 1:
+            for i, j in zip(*np.triu_indices_from(self._axes, k=1)):
+                for x, y in [(i, j), (j, i)]:
+                    self._plots[c].set_xdata(A[:, x])
+                    self._plots[c].set_ydata(A[:, y])
+                    self._plots[c].axes.set_xlim(xmin=A[:, x].min(), xmax=A[:, x].max())
+                    self._plots[c].axes.set_ylim(ymin=A[:, y].min(), ymax=A[:, y].max())
+                    c += 1
+        else:
+            self._plots[0].set_xdata(A)
+            self._plots[0].set_ydata(A)
+            self._plots[0].axes.set_xlim(xmin=A.min(), xmax=A.max())
+            self._plots[0].axes.set_ylim(ymin=A.min(), ymax=A.max())
         self._F.suptitle("Generation {:15d}".format(self._i))
         self._F.canvas.draw()
         self._F.canvas.flush_events()
