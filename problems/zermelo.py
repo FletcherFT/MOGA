@@ -4,6 +4,13 @@ import numpy as np
 from scipy.spatial.distance import cdist
 
 from mogapy import ndsa1, utils
+import matplotlib.pyplot as plt
+
+
+def plot_results(solutions, cost):
+    plt.matshow(cost)
+    for solution in solutions:
+        plt.plot(range(cost.shape[1]), solution)
 
 
 def fitness(solutions, cost):
@@ -57,7 +64,8 @@ if __name__ == "__main__":
     # The Logger Class
     logger = utils.ResultsManager()
     # Number of generations
-    for i in range(1000):
+    for i in range(10):
         print("Iteration {:04d}".format(i + 1))
         chromosones, fitnesses = solver.update(chromosones, cost=CURRENT[1])
         logger.update(fitnesses, ["Distance", "Energy"], linestyle="None", marker=".", markersize=10, color="green")
+    plot_results(chromosones, CURRENT[1])
