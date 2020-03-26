@@ -56,8 +56,24 @@ def ndsa(fitnesses):
     # Remove empty rankings from F and return
     return [i for i in F if len(i) > 0]
 
-def crowding_distance():
-    pass
+
+def crowding_distance(solutions, rankings, fitnesses):
+    D = np.zeros((solutions.shape[0],))
+    # for each ranking
+    for r in rankings:
+        # Get the fitness for the current rank
+        fitness = fitnesses[r, :]
+        # Sort each fitness
+        c = np.sort(fitness, axis=0)
+        # Get the mapping
+        s = np.argsort(fitness, axis=0)
+        # Init the Normalized crowding distance
+        d = np.inf * np.ones(fitness.shape)
+        for i in range(1, d.shape[0] - 1):
+            d[s[i, :], range(d.shape[1])] = np.abs(c[i + 1, :] - c[i - 1, :]) / (c.max(axis=0) - c.min(axis=0))
+        D[r] = d.sum(axis=-1)
+    return D
+
 
 class NDSA1(Solver):
     """This class implements Non-Dominated Sorting Algorithm for Genetic Algorithm."""
@@ -104,8 +120,8 @@ class NDSA1(Solver):
         """Mutate children by random inversion."""
         children = solutions.copy()
         for i in range(children.shape[0]):
-            # Pick two indices
-            cidx = np.sort(np.random.choice(range(solutions.shape[1]), size=(2, 1), replace=False), axis=0).squeeze()
+            # Pick two indices between start+1 and finish-1
+            cidx = np.sort(np.random.choice(range(1, solutions.shape[1]-1), size=(2, 1), replace=False), axis=0).squeeze()
             # Invert child indices
             children[i, cidx[0]:cidx[1]] = children[i, cidx[1]:cidx[0]:-1]
         return children
@@ -139,20 +155,7 @@ class NDSA1(Solver):
         ranks = np.array([k for i, j in enumerate(rankings) for k in [i] * len(j)])
         # If there are more than N surviving solutions, then trim according to crowding distance.
         if len(sur_idx) > N:
-            D = np.zeros((survivors.shape[0],))
-            # for each ranking
-            for r in rankings:
-                # Get the fitness for the current rank
-                fitness = fitnesses[r, :]
-                # Sort each fitness
-                c = np.sort(fitness, axis=0)
-                # Get the mapping
-                s = np.argsort(fitness, axis=0)
-                # Init the Normalized crowding distance
-                d = np.inf * np.ones(fitness.shape)
-                for i in range(1, d.shape[0]-1):
-                    d[s[i, :], range(d.shape[1])] = np.abs(c[i+1, :] - c[i-1, :]) / (c.max(axis=0) - c.min(axis=0))
-                D[r] = d.sum(axis=-1)
+            D = crowding_distance(survivors, rankings, fitnesses)
             # get the indices of the solutions sorted by crowding distance.
             d_idx = np.flipud(np.argsort(D))
             survivors = survivors[d_idx[:N], :]
