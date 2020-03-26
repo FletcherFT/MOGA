@@ -57,8 +57,8 @@ def ndsa(fitnesses):
     return [i for i in F if len(i) > 0]
 
 
-def crowding_distance(solutions, rankings, fitnesses):
-    D = np.zeros((solutions.shape[0],))
+def crowding_distance(rankings, fitnesses):
+    D = np.zeros((fitnesses.shape[0],))
     # for each ranking
     for r in rankings:
         # Get the fitness for the current rank
@@ -70,6 +70,9 @@ def crowding_distance(solutions, rankings, fitnesses):
         # Init the Normalized crowding distance
         d = np.inf * np.ones(fitness.shape)
         for i in range(1, d.shape[0] - 1):
+            if c.max(axis=0) == c.min(axis=0):
+                d[s[i, :], range(d.shape[1])] = 0
+                continue
             d[s[i, :], range(d.shape[1])] = np.abs(c[i + 1, :] - c[i - 1, :]) / (c.max(axis=0) - c.min(axis=0))
         D[r] = d.sum(axis=-1)
     return D
@@ -137,43 +140,42 @@ class NDSA1(Solver):
             sur_idx += rankings[k]
             k += 1
         sur_idx = np.array(sur_idx)
-        # Trim the solutions to create the survivors
-        survivors = solutions[sur_idx, :]
-        # Trim the fitnesses
-        fitnesses = fitnesses[sur_idx, :]
         # Trim the rankings
         rankings = rankings[:k]
-        # Refactor the ranking indices
-        # Unroll the indices into an ordered list according to rank
-        ordered = np.array([j for i in rankings for j in i])
-        # Get the mapping between the ranked order and the solutions
-        mapping = np.argsort(ordered)
-        # Also unroll the rankings
-        ranks = np.array([k for i, j in enumerate(rankings) for k in [i] * len(j)])
-        # Repackage the rankings with the indices mapped to the survivors
-        rankings = [mapping[ranks == i].tolist() for i in range(k)]
-        ranks = np.array([k for i, j in enumerate(rankings) for k in [i] * len(j)])
         # If there are more than N surviving solutions, then trim according to crowding distance.
         if len(sur_idx) > N:
-            D = crowding_distance(survivors, rankings, fitnesses)
+            D = crowding_distance(rankings, fitnesses)
             # get the indices of the solutions sorted by crowding distance.
-            d_idx = np.flipud(np.argsort(D))
-            survivors = survivors[d_idx[:N], :]
-            fitnesses = fitnesses[d_idx[:N], :]
-        return survivors, fitnesses
+            sur_idx = np.flipud(np.argsort(D))
+            sur_idx = sur_idx[:N]
+        return sur_idx
 
     def update(self, solutions, **kwargs):
         # Step 1: calculate fitness step has already been done.
-        fitnesses = self._fitness(solutions, **kwargs)
+        objective_fitnesses, constraint_fitnesses = self._fitness(solutions, **kwargs)
         # Step 2: identify the Pareto rankings
-        rankings = ndsa(fitnesses)
+        # Get constraints first
+        rankings = ndsa(constraint_fitnesses)
+        # If constraints are satisfactory, get the objectives
+        if len(rankings) < 2:
+            rankings = ndsa(objective_fitnesses)
         # Step 3: Selection based on rank
         parents = self._selection(solutions, rankings)
         # Step 4: Generate children from parents
         children = self._mutate(self._xover(parents))
         # Step 5: Get the fitness of the children
-        c_fitness = self._fitness(children, **kwargs)
+        c_objective_fitness, c_constraint_fitness = self._fitness(children, **kwargs)
         # Step 6: Get the rankings of the complete set of children and original population
-        rankings = ndsa(np.vstack((fitnesses, c_fitness)))
+        # Get constraints first
+        combined_fitness = np.vstack((constraint_fitnesses, c_constraint_fitness))
+        rankings = ndsa(combined_fitness)
+        # If constraints are satisfactory, get the objectives
+        if len(rankings) < 2:
+            combined_fitness = np.vstack((objective_fitnesses, c_objective_fitness))
+            rankings = ndsa(combined_fitness)
         # Step 7: Survival according to crowding distance and ranking
-        return self._survival(np.vstack((solutions, children)), rankings, np.vstack((fitnesses, c_fitness)))
+        # Previous solutions and children combined
+        combined_solutions = np.vstack((solutions, children))
+        # Get the indices of the survivors
+        idx = self._survival(combined_solutions, rankings, combined_fitness)
+        return combined_solutions[idx, :], np.vstack((objective_fitnesses, c_objective_fitness))[idx, :], np.vstack((constraint_fitnesses, c_constraint_fitness))[idx, :]
