@@ -1,7 +1,7 @@
 import argparse
 
 import numpy as np
-from scipy.spatial.distance import cdist
+from scipy.spatial.distance import pdist
 
 from mogapy import ndsa1, utils
 import matplotlib.pyplot as plt
@@ -13,29 +13,35 @@ def plot_results(solutions, cost):
         plt.plot(range(cost.shape[1]), solution)
 
 
-def fitness(solutions, cost, maxdx):
-    # The transect is a range from 0 to GRID_HEIGHT-1
-    Y = np.array(range(cost.shape[1]))
-    # There are two objective fitnesses, time and energy
-    objective_fitnesses = np.zeros((solutions.shape[0], 2))
-    # There is one constraint fitness, max traversal distance.
-    constraint_fitnesses = np.zeros((solutions.shape[0], 1))
-    for i, X in enumerate(solutions):
-        # The time cost is proportional to the distance travelled along the path.
-        objective_fitnesses[i, 0] = np.diag(cdist(np.vstack((X[:-1], Y[:-1])).T,
-                                        np.vstack((X[1:], Y[1:])).T)).sum()
-        # The estimated grid frame speed (x component)
-        # Negative U means travelling downstream
-        U = np.hstack((0, -np.diff(X)))
-        # The current velocity at each visited tile
-        v = cost[X, Y]
-        # The effort is U*v with a condition that U*v == 0 is v
-        objective_fitnesses[i, 1] = np.where(U * v == 0, v, U * v).sum()
-        # Constraint: reduce allowed distance between each point.
-        dX = np.abs(np.diff(X))
-        constraint_fitnesses[i, 0] = (dX > maxdx).sum()
-
-    return objective_fitnesses, constraint_fitnesses
+def fitness(S, V):
+    """Fitness Calculation
+    Given S, V
+    1. Calculate S'
+    2. Calculate w(S) = S' + V(S)
+    3. D = int_c(S)ds
+    4. E = int_c(||w||^2)ds
+    return D, E"""
+    # S'
+    S_prime = np.gradient(S, axis=1)
+    # Get the number, length and Dimension of solutions
+    N, L, Dim = S.shape
+    # Break out the X and Y coordinates of S
+    X = S[:, :, 0].flatten()
+    Y = S[:, :, 1].flatten()
+    # Break out the u and v components of V
+    u = V[:, :, 0].squeeze()
+    v = V[:, :, 1].squeeze()
+    u_s = u[X, Y].reshape((N, L, 1))
+    v_s = v[X, Y].reshape((N, L, 1))
+    # V(s)
+    V_s = np.concatenate((u_s, v_s), axis=-1)
+    # w
+    w = S_prime + V_s
+    # curve integral of all solutions in S
+    D = np.sqrt((np.diff(S, axis=1)**2).sum(axis=-1)).sum(axis=-1).reshape((N,1))
+    # energy integral of all solutions in w
+    E = (w**2).sum(axis=-1).sum(axis=-1)
+    return D, E
 
 
 if __name__ == "__main__":
