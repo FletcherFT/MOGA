@@ -103,19 +103,27 @@ class NDSA1(Solver):
         pidx = np.random.choice(range(solutions.shape[0]), size=(solutions.shape[0], 1), p=p)
         return np.squeeze(solutions[pidx, :])
 
-    def _xover(self, solutions, fitnesses):
+    def _xover(self, solutions):
         """Generate children by 2 point crossover"""
         children = solutions.copy()
+        p = np.random.randint(0, 2, self._n)
         for i in range(self._n):
-            # Pick two different parents
-            pidx = np.random.choice(range(self._n), size=(2, 1), replace=False)
-            # TODO set template chromosone to be the worse performing
-            # Set template chromosone to be first choice
-            children[i, :] = solutions[pidx[0], :]
-            # Pick two indices
-            cidx = np.sort(np.random.choice(range(solutions.shape[1]), size=(2, 1), replace=False), axis=0).squeeze()
-            # Replace child indices with parent 2's indices
-            children[i, cidx[0]:cidx[1]] = solutions[pidx[1], cidx[0]:cidx[1]]
+            # Exploitation and Exploration by recombination
+            if p[i] == 0:
+                # Pick two different parents
+                pidx = np.random.choice(range(self._n), size=(2, 1), replace=False)
+                # Set template chromosome to be first choice
+                children[i, :] = solutions[pidx[0], :]
+                # Pick two indices
+                cidx = np.sort(np.random.choice(range(solutions.shape[1]), size=(2, 1), replace=False), axis=0).squeeze()
+                # Replace child indices with parent 2's indices
+                children[i, cidx[0]:cidx[1]] = solutions[pidx[1], cidx[0]:cidx[1]]
+            # Exploitation and Exploration by mean averaging
+            elif p[i] == 1:
+                # Pick 2 or more parents
+                pidx = np.random.choice(range(self._n), size=(np.random.randint(2, self._n+1, 1)[0], 1), replace=False)
+                # Get the mean of the parents chromosone
+                children[i, 1:solutions.shape[1]-1, :] = np.mean(solutions[pidx, 1:solutions.shape[1]-1, :], axis=0, dtype=np.int).squeeze()
         return children
 
     def _mutate(self, solutions, bounds=None, lineq=None, **kwargs):
@@ -123,7 +131,7 @@ class NDSA1(Solver):
         or by random signed increment vector (exploration)."""
         children = solutions.copy()
         N, L, Dim = children.shape
-        p = np.random.randint(0, 3, N)
+        p = np.random.randint(0, 2, N)
         for i in range(N):
             if p[i] == 0:
                 # Exploitation Mechanism
@@ -171,7 +179,7 @@ class NDSA1(Solver):
         # Step 3: Selection based on rank
         parents = self._selection(solutions, rankings)
         # Step 4: Generate children from parents
-        children = self._mutate(self._xover(parents, self._fitness(parents, **kwargs)), **kwargs)
+        children = self._mutate(self._xover(parents), **kwargs)
         # Step 5: Get the fitness of the children
         c_fitness = self._fitness(children, **kwargs)
         # Step 6: Get the rankings of the complete set of children and original population
