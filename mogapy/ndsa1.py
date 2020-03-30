@@ -1,5 +1,4 @@
 import numpy as np
-import random
 from mogapy.solver import Solver
 
 
@@ -70,10 +69,9 @@ def crowding_distance(rankings, fitnesses):
         # Init the Normalized crowding distance
         d = np.inf * np.ones(fitness.shape)
         for i in range(1, d.shape[0] - 1):
-            if c.max(axis=0) == c.min(axis=0):
-                d[s[i, :], range(d.shape[1])] = 0
-                continue
             d[s[i, :], range(d.shape[1])] = np.abs(c[i + 1, :] - c[i - 1, :]) / (c.max(axis=0) - c.min(axis=0))
+        # nans occur when c.max - c.min == 0, set to zero.
+        d = np.nan_to_num(d, nan=0, posinf=np.inf, neginf=-np.inf)
         D[r] = d.sum(axis=-1)
     return D
 
@@ -108,9 +106,10 @@ class NDSA1(Solver):
     def _xover(self, solutions):
         """Generate children by 2 point crossover"""
         children = solutions.copy()
-        for i in range(children.shape[0]):
+        for i in range(self._n):
             # Pick two different parents
-            pidx = np.random.choice(range(solutions.shape[0]), size=(2, 1), replace=False)
+            pidx = np.random.choice(range(self._n), size=(2, 1), replace=False)
+            # TODO set template chromosone to be the worse performing
             # Set template chromosone to be first choice
             children[i, :] = solutions[pidx[0], :]
             # Pick two indices
@@ -119,63 +118,70 @@ class NDSA1(Solver):
             children[i, cidx[0]:cidx[1]] = solutions[pidx[1], cidx[0]:cidx[1]]
         return children
 
-    def _mutate(self, solutions):
-        """Mutate children by random inversion."""
+    def _mutate(self, solutions, bounds=None, lineq=None, **kwargs):
+        """Mutate children by random inversion (exploit)
+        or by random signed increment vector (exploration)."""
         children = solutions.copy()
-        for i in range(children.shape[0]):
-            # Pick two indices between start+1 and finish-1
-            cidx = np.sort(np.random.choice(range(1, solutions.shape[1]-1), size=(2, 1), replace=False), axis=0).squeeze()
-            # Invert child indices
-            children[i, cidx[0]:cidx[1]] = children[i, cidx[1]:cidx[0]:-1]
+        N, L, Dim = children.shape
+        p = np.random.uniform(0, 1, N) > 0.5
+        for i in range(N):
+            if p[i]:
+                # Pick two indices between start+1 and finish-1
+                cidx = np.sort(np.random.choice(range(1, L-1), size=(2, 1), replace=False), axis=0).squeeze()
+                # Invert child indices
+                children[i, cidx[0]:cidx[1], 0] = children[i, cidx[1]:cidx[0]:-1, 0]
+            else:
+                # mutate the children by adding a vector of integers in range [-1, 1]
+                children[i, 1:L-1, 0] = children[i, 1:L-1, 0] + np.random.randint(-50, 51, L-2)
+                # apply bounds if given
+                if bounds is not None:
+                    children[i, 1:L, :] = np.clip(children[i, 1:L, :], bounds[:, 0], bounds[:, 1])
         return children
 
     def _survival(self, solutions, *args):
-        N = int(solutions.shape[0] / 2)
         rankings = args[0]
         fitnesses = args[1]
         # Add the indices of the top k rankings until the length of the indices >= N.
         sur_idx =[]
         k = 0
-        while len(sur_idx) < solutions.shape[0]/2:
+        while len(sur_idx) < self._n:
             sur_idx += rankings[k]
             k += 1
         sur_idx = np.array(sur_idx)
         # Trim the rankings
         rankings = rankings[:k]
         # If there are more than N surviving solutions, then trim according to crowding distance.
-        if len(sur_idx) > N:
+        if len(sur_idx) > self._n:
             D = crowding_distance(rankings, fitnesses)
             # get the indices of the solutions sorted by crowding distance.
             sur_idx = np.flipud(np.argsort(D))
-            sur_idx = sur_idx[:N]
+            sur_idx = sur_idx[:self._n]
         return sur_idx
 
     def update(self, solutions, **kwargs):
         # Step 1: calculate fitness step has already been done.
-        objective_fitnesses, constraint_fitnesses = self._fitness(solutions, **kwargs)
+        fitnesses = self._fitness(solutions, **kwargs)
         # Step 2: identify the Pareto rankings
-        # Get constraints first
-        rankings = ndsa(constraint_fitnesses)
         # If constraints are satisfactory, get the objectives
-        if len(rankings) < 2:
-            rankings = ndsa(objective_fitnesses)
+        rankings = ndsa(fitnesses)
         # Step 3: Selection based on rank
         parents = self._selection(solutions, rankings)
         # Step 4: Generate children from parents
-        children = self._mutate(self._xover(parents))
+        children = self._mutate(self._xover(parents), **kwargs)
         # Step 5: Get the fitness of the children
-        c_objective_fitness, c_constraint_fitness = self._fitness(children, **kwargs)
+        c_fitness = self._fitness(children, **kwargs)
         # Step 6: Get the rankings of the complete set of children and original population
         # Get constraints first
-        combined_fitness = np.vstack((constraint_fitnesses, c_constraint_fitness))
+        combined_fitness = np.vstack((fitnesses, c_fitness))
         rankings = ndsa(combined_fitness)
-        # If constraints are satisfactory, get the objectives
-        if len(rankings) < 2:
-            combined_fitness = np.vstack((objective_fitnesses, c_objective_fitness))
-            rankings = ndsa(combined_fitness)
         # Step 7: Survival according to crowding distance and ranking
         # Previous solutions and children combined
         combined_solutions = np.vstack((solutions, children))
         # Get the indices of the survivors
         idx = self._survival(combined_solutions, rankings, combined_fitness)
-        return combined_solutions[idx, :], np.vstack((objective_fitnesses, c_objective_fitness))[idx, :], np.vstack((constraint_fitnesses, c_constraint_fitness))[idx, :]
+        # Unroll the mapping of the rank for each index
+        mappings = np.array([i for i,j in enumerate(rankings) for _ in j])
+        # take only the surviving ranks
+        mappings = mappings[idx]
+
+        return combined_solutions[idx, :], combined_fitness[idx, :], rankings
