@@ -1,16 +1,35 @@
 import argparse
 
+import matplotlib.pyplot as plt
 import numpy as np
-np.random.seed(42)
 from numpy.matlib import repmat
 
 from mogapy import ndsa1, utils
-import matplotlib.pyplot as plt
+
+np.random.seed(42)
+
+
+class ResultPlotter:
+    def __init__(self):
+        self._F = None
+        self._ax = None
+        self._p = []
+
+    def update(self, solutions, cost):
+        if self._F is None:
+            self._F, self._ax = plt.subplots()
+            self._ax.quiver(cost[:, :, 0], cost[:, :, 1], cost[:, :, 2], cost[:, :, 3])
+            for solution in solutions:
+                self._p += plt.plot(solution[:, 0], solution[:, 1])
+        else:
+            for i, solution in enumerate(solutions):
+                self._p[i].set_xdata(solution[:, 0])
+                self._p[i].set_ydata(solution[:, 1])
 
 
 def plot_results(solutions, cost):
     plt.figure()
-    plt.quiver(cost[:,:,0], cost[:,:,1], cost[:,:,2], cost[:,:,3])
+    plt.quiver(cost[:, :, 0], cost[:, :, 1], cost[:, :, 2], cost[:, :, 3])
     for solution in solutions:
         plt.plot(solution[:, 0], solution[:, 1])
 
@@ -33,8 +52,8 @@ def fitness(S, V, **kwargs):
     # Break out the u and v components of V
     u = V[:, :, 0]
     v = V[:, :, 1]
-    u_s = u[X, Y].reshape((N, L, 1))
-    v_s = v[X, Y].reshape((N, L, 1))
+    u_s = u[Y, X].reshape((N, L, 1))
+    v_s = v[Y, X].reshape((N, L, 1))
     # V(s)
     V_s = np.concatenate((u_s, v_s), axis=-1)
     # w
@@ -42,7 +61,7 @@ def fitness(S, V, **kwargs):
     # curve integral of all solutions in S
     D = np.sqrt((np.diff(S, axis=1) ** 2).sum(axis=-1)).sum(axis=-1).reshape((N, 1))
     # energy integral of all solutions in w
-    E = (w ** 2).sum(axis=-1).sum(axis=-1).reshape((N,1))
+    E = (w ** 2).sum(axis=-1).sum(axis=-1).reshape((N, 1))
     return np.hstack((D, E))
 
 
@@ -51,10 +70,10 @@ if __name__ == "__main__":
         description="Script to build and find optimal solutions for Zermelo's Navigation Problem.")
     args = parser.parse_args()
     # Build the search space
-    WIDTH = 101
+    WIDTH = 301
     DEPTH = 101
-    START = 50
-    FINISH = 50
+    START = 150
+    FINISH = 150
     # X coordinate corresponds to horizontal position in water column
     X = np.array(range(WIDTH))
     # Y coordinate corresponds to altitude position in water column
@@ -65,21 +84,22 @@ if __name__ == "__main__":
     # The velocity vector field, comprised of u and v components
     # u component varies with y only
     # v component is constant 0
-    V = np.stack((GRID_X, np.zeros((WIDTH, DEPTH))), axis=2)
+    V = np.stack((GRID_X, np.zeros((DEPTH, WIDTH))), axis=2)
     # Number of solutions
     N = 100
     # Initialise the solutions array, alleles for the moment are just random elements in X
     chromosones = np.stack((np.random.randint(0, WIDTH, (N, DEPTH), np.int),
-                           repmat(np.expand_dims(np.arange(DEPTH), 0), N, 1)), axis=2)
+                            repmat(np.expand_dims(np.arange(DEPTH), 0), N, 1)), axis=2)
+    chromosones[0, :, 0] = START
     # Define bounds
-    bounds = np.array([[0, WIDTH-1],
-                       [0, DEPTH-1]])
+    bounds = np.array([[0, WIDTH - 1],
+                       [0, DEPTH - 1]])
     # Define linear equality constraints
     A = np.zeros((2, DEPTH, 2))
     A[0, 0, 0] = 1
     A[1, -1, 0] = 1
     b = np.array([[[START, 0],
-                  [FINISH, 0]]])
+                   [FINISH, 0]]])
     # Enforce starting X condition
     chromosones[:, 0, 0] = START
     # Enforce finishing X condition
@@ -88,12 +108,13 @@ if __name__ == "__main__":
     solver = ndsa1.NDSA1(N, fitness=fitness)
     # The Logger Class
     logger = utils.ResultsManager()
-    # The global best
-    gbest = None
-    fbest = None
+    # Solution Display
+    sol = ResultPlotter()
+    # Vector Field
+    COST = np.concatenate((np.expand_dims(GRID_X, 2), np.expand_dims(GRID_Y, 2), V), axis=2)
     # Number of generations
-    for i in range(500):
+    for i in range(10000):
         print("Iteration {:04d}".format(i + 1))
         chromosones, fitnesses = solver.update(chromosones, V=V, bounds=bounds, lineq=(A, b))
         logger.update(fitnesses, ["Distance", "Energy"], linestyle="None", marker=".", markersize=10, color="green")
-    plot_results(chromosones, np.concatenate((np.expand_dims(GRID_X, 2), np.expand_dims(GRID_Y, 2), V),axis=2))
+        sol.update(chromosones, COST)
