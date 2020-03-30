@@ -103,7 +103,7 @@ class NDSA1(Solver):
         pidx = np.random.choice(range(solutions.shape[0]), size=(solutions.shape[0], 1), p=p)
         return np.squeeze(solutions[pidx, :])
 
-    def _xover(self, solutions):
+    def _xover(self, solutions, fitnesses):
         """Generate children by 2 point crossover"""
         children = solutions.copy()
         for i in range(self._n):
@@ -123,16 +123,20 @@ class NDSA1(Solver):
         or by random signed increment vector (exploration)."""
         children = solutions.copy()
         N, L, Dim = children.shape
-        p = np.random.uniform(0, 1, N) > 0.5
+        p = np.random.randint(0, 3, N)
         for i in range(N):
-            if p[i]:
+            if p[i] == 0:
+                # Exploitation Mechanism
                 # Pick two indices between start+1 and finish-1
                 cidx = np.sort(np.random.choice(range(1, L-1), size=(2, 1), replace=False), axis=0).squeeze()
                 # Invert child indices
                 children[i, cidx[0]:cidx[1], 0] = children[i, cidx[1]:cidx[0]:-1, 0]
-            else:
+            elif p[i] == 1:
+                # Exploration Mechanism
                 # mutate the children by adding a vector of integers in range [-1, 1]
-                children[i, 1:L-1, 0] = children[i, 1:L-1, 0] + np.random.randint(-50, 51, L-2)
+                idx = np.random.randint(1, L, (2,))
+                idx.sort()
+                children[i, idx[0]:idx[1]+1, 0] = children[i, idx[0]:idx[1]+1, 0] + np.random.randint(-1, 1, (np.diff(idx)+1))
                 # apply bounds if given
                 if bounds is not None:
                     children[i, 1:L, :] = np.clip(children[i, 1:L, :], bounds[:, 0], bounds[:, 1])
@@ -167,7 +171,7 @@ class NDSA1(Solver):
         # Step 3: Selection based on rank
         parents = self._selection(solutions, rankings)
         # Step 4: Generate children from parents
-        children = self._mutate(self._xover(parents), **kwargs)
+        children = self._mutate(self._xover(parents, self._fitness(parents, **kwargs)), **kwargs)
         # Step 5: Get the fitness of the children
         c_fitness = self._fitness(children, **kwargs)
         # Step 6: Get the rankings of the complete set of children and original population
@@ -179,9 +183,4 @@ class NDSA1(Solver):
         combined_solutions = np.vstack((solutions, children))
         # Get the indices of the survivors
         idx = self._survival(combined_solutions, rankings, combined_fitness)
-        # Unroll the mapping of the rank for each index
-        mappings = np.array([i for i,j in enumerate(rankings) for _ in j])
-        # take only the surviving ranks
-        mappings = mappings[idx]
-
-        return combined_solutions[idx, :], combined_fitness[idx, :], rankings
+        return combined_solutions[idx, :], combined_fitness[idx, :]

@@ -94,13 +94,6 @@ if __name__ == "__main__":
     # Number of generations
     for i in range(500):
         print("Iteration {:04d}".format(i + 1))
-        chromosones, fitnesses, rankings = solver.update(chromosones, V=V, bounds=bounds, lineq=(A, b))
-        if gbest is None:
-            gbest = chromosones[rankings, :, :]
-            fbest = fitnesses[rankings, :]
-        else:
-            rankings = ndsa1.ndsa(np.vstack((fbest, fitnesses[rankings, :])))
-            gbest = np.vstack((gbest, chromosones[rankings, :, :]))[rankings, :, :]
-            fbest = np.vstack((fbest, fitnesses[rankings, :]))[rankings, :]
+        chromosones, fitnesses = solver.update(chromosones, V=V, bounds=bounds, lineq=(A, b))
         logger.update(fitnesses, ["Distance", "Energy"], linestyle="None", marker=".", markersize=10, color="green")
     plot_results(chromosones, np.concatenate((np.expand_dims(GRID_X, 2), np.expand_dims(GRID_Y, 2), V),axis=2))
