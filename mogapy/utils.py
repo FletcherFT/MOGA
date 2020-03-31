@@ -5,27 +5,23 @@ from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.animation import FFMpegWriter
-from matplotlib import cbook
-import subprocess
-import logging
-import sys
-import time
+from shutil import which
+# TODO For some reason, ffmpeg_path can't be found by shutil.which("ffmpeg")
 plt.rcParams['animation.ffmpeg_path'] = 'C:\\Users\\fletho\\ffmpeg-4.2.2-win64-static\\ffmpeg-4.2.2-win64-static\\bin\\ffmpeg'
 
 
-if sys.platform == 'win32':
-    subprocess_creation_flags = CREATE_NO_WINDOW = 0x08000000
-else:
-    # Apparently None won't work here
-    subprocess_creation_flags = 0
-
-class ResultsManager:
-    def __init__(self):
+class ResultsManager(FFMpegWriter):
+    def __init__(self, **kwargs):
         self._F = None
         self._axes = None
         self._log = None
         self._plots = []
         self._i = 0
+        self.flag = False
+        if len(kwargs):
+            self._fname = kwargs.pop("outfile")
+            self.flag = True
+            super().__init__(**kwargs)
 
     def update(self, A, names, **kwargs):
         _, numvars = A.shape
@@ -62,28 +58,30 @@ class ResultsManager:
                     for x, y in [(i, j), (j, i)]:
                         p = self._axes[x, y].plot(A[:, x], A[:, y], **kwargs)
                         self._plots += p
+                if self.flag:
+                    self.setup(self._F, outfile=self._fname)
             else:
                 self._plots = self._axes.plot(A, A, **kwargs)
-            self._F.canvas.draw()
-            self._F.canvas.flush_events()
-            return
-        c = 0
-        if numvars > 1:
-            for i, j in zip(*np.triu_indices_from(self._axes, k=1)):
-                for x, y in [(i, j), (j, i)]:
-                    self._plots[c].set_xdata(A[:, x])
-                    self._plots[c].set_ydata(A[:, y])
-                    self._plots[c].axes.set_xlim(xmin=A[:, x].min(), xmax=A[:, x].max())
-                    self._plots[c].axes.set_ylim(ymin=A[:, y].min(), ymax=A[:, y].max())
-                    c += 1
         else:
-            self._plots[0].set_xdata(A)
-            self._plots[0].set_ydata(A)
-            self._plots[0].axes.set_xlim(xmin=A.min(), xmax=A.max())
-            self._plots[0].axes.set_ylim(ymin=A.min(), ymax=A.max())
-        self._F.suptitle("Generation {:15d}".format(self._i))
+            c = 0
+            if numvars > 1:
+                for i, j in zip(*np.triu_indices_from(self._axes, k=1)):
+                    for x, y in [(i, j), (j, i)]:
+                        self._plots[c].set_xdata(A[:, x])
+                        self._plots[c].set_ydata(A[:, y])
+                        self._plots[c].axes.set_xlim(xmin=A[:, x].min(), xmax=A[:, x].max())
+                        self._plots[c].axes.set_ylim(ymin=A[:, y].min(), ymax=A[:, y].max())
+                        c += 1
+            else:
+                self._plots[0].set_xdata(A)
+                self._plots[0].set_ydata(A)
+                self._plots[0].axes.set_xlim(xmin=A.min(), xmax=A.max())
+                self._plots[0].axes.set_ylim(ymin=A.min(), ymax=A.max())
+            self._F.suptitle("Generation {:15d}".format(self._i))
         self._F.canvas.draw()
         self._F.canvas.flush_events()
+        if self.flag:
+            self.grab_frame()
 
     def log(self, A, names):
         # TODO Find something worthwhile to log.
@@ -111,10 +109,10 @@ class ResultPlotter(FFMpegWriter):
         self._F = None
         self._ax = None
         self._p = []
-        self._flag = False
+        self.flag = False
         if len(kwargs):
             self._fname = kwargs.pop("outfile")
-            self._flag = True
+            self.flag = True
             super().__init__(**kwargs)
 
     def update(self, solutions, cost):
@@ -123,23 +121,11 @@ class ResultPlotter(FFMpegWriter):
             self._ax.quiver(cost[:, :, 0], cost[:, :, 1], cost[:, :, 2], cost[:, :, 3])
             for solution in solutions:
                 self._p += plt.plot(solution[:, 0], solution[:, 1])
-            self.setup(self._F, outfile=self._fname)
+            if self.flag:
+                self.setup(self._F, outfile=self._fname)
         else:
             for i, solution in enumerate(solutions):
                 self._p[i].set_xdata(solution[:, 0])
                 self._p[i].set_ydata(solution[:, 1])
-        if self._flag:
+        if self.flag:
             self.grab_frame()
-
-    # def _run(self):
-    #     # Uses subprocess to call the program for assembling frames into a
-    #     # movie file.  *args* returns the sequence of command line arguments
-    #     # from a few configuration options.
-    #     command = self._args()
-    #     _log = logging.getLogger(__name__)
-    #     _log.info('MovieWriter._run: running command: %s',
-    #               cbook._pformat_subprocess(command))
-    #     PIPE = subprocess.PIPE
-    #     self._proc = subprocess.Popen(
-    #         command, stdin=PIPE, stdout=PIPE, stderr=PIPE,
-    #         creationflags=subprocess_creation_flags, shell=True)
