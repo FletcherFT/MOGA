@@ -1,4 +1,5 @@
 import numpy as np
+
 from mogapy.solver import Solver
 
 
@@ -49,7 +50,7 @@ def ndsa(fitnesses):
             for j in s[i]:
                 d[j] = d[j] - 1
                 if d[j] == 0:
-                    F[f+1].append(j)
+                    F[f + 1].append(j)
         # Increment the rank
         f = f + 1
     # Remove empty rankings from F and return
@@ -75,13 +76,16 @@ def crowding_distance(rankings, fitnesses):
         D[r] = d.sum(axis=-1)
     return D
 
-def moving_average(a, n=3) :
+
+def moving_average(a, n=3):
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
 
+
 class NDSA1(Solver):
     """This class implements Non-Dominated Sorting Algorithm for Genetic Algorithm."""
+
     def __init__(self, popsize, **kwargs):
         super().__init__(popsize, **kwargs)
 
@@ -95,14 +99,14 @@ class NDSA1(Solver):
         # Also unroll the rankings
         ranks = np.array([k for i, j in enumerate(rankings) for k in [i] * len(j)])
         # Invert the rankings to give the highest weighting to the best rank
-        p = ranks.max()-ranks
+        p = ranks.max() - ranks
         # Sort according to the order
         p = p[mapping]
         # Normalise the weightings for each rank to get p distribution for each value.
         # Special case: all ranks are 0
         if p.sum() == 0:
-            p = p+1
-        p = p/p.sum()
+            p = p + 1
+        p = p / p.sum()
         # draw parent indices from the distribution
         pidx = np.random.choice(range(solutions.shape[0]), size=(solutions.shape[0], 1), p=p)
         return np.squeeze(solutions[pidx, :])
@@ -119,15 +123,18 @@ class NDSA1(Solver):
                 # Set template chromosome to be first choice
                 children[i, :] = solutions[pidx[0], :]
                 # Pick two indices
-                cidx = np.sort(np.random.choice(range(solutions.shape[1]), size=(2, 1), replace=False), axis=0).squeeze()
+                cidx = np.sort(np.random.choice(range(solutions.shape[1]), size=(2, 1), replace=False),
+                               axis=0).squeeze()
                 # Replace child indices with parent 2's indices
                 children[i, cidx[0]:cidx[1]] = solutions[pidx[1], cidx[0]:cidx[1]]
             # Exploitation and Exploration by mean averaging
             elif p[i] == 1:
                 # Pick 2 or more parents
-                pidx = np.random.choice(range(self._n), size=(np.random.randint(2, self._n+1, 1)[0], 1), replace=False)
+                pidx = np.random.choice(range(self._n), size=(np.random.randint(2, self._n + 1, 1)[0], 1),
+                                        replace=False)
                 # Get the mean of the parents chromosome
-                children[i, 1:solutions.shape[1]-1, :] = np.mean(solutions[pidx, 1:solutions.shape[1]-1, :], axis=0, dtype=np.int).squeeze()
+                children[i, 1:solutions.shape[1] - 1, :] = np.mean(solutions[pidx, 1:solutions.shape[1] - 1, :], axis=0,
+                                                                   dtype=np.int).squeeze()
         return children
 
     def _mutate(self, solutions, bounds=None, lineq=None, **kwargs):
@@ -140,29 +147,29 @@ class NDSA1(Solver):
             if p[i] == 0:
                 # Exploitation Mechanism
                 # Pick two indices between start+1 and finish-1
-                cidx = np.sort(np.random.choice(range(1, L-1), size=(2, 1), replace=False), axis=0).squeeze()
+                cidx = np.sort(np.random.choice(range(1, L - 1), size=(2, 1), replace=False), axis=0).squeeze()
                 # Invert child indices
                 children[i, cidx[0]:cidx[1], 0] = children[i, cidx[1]:cidx[0]:-1, 0]
             elif p[i] == 1:
                 # Exploration Mechanism
-                # mutate the children by adding a vector of integers in range [-1, 1]
-                idx = np.random.randint(1, L, (2,))
-                idx.sort()
-                children[i, idx[0]:idx[1]+1, 0] = children[i, idx[0]:idx[1]+1, 0] + np.random.randint(-1, 1, (np.diff(idx)+1))
+                # mutate the child by by adding a vector of integers in range [-1, 1] to a segment
+                # Get the segment
+                idx = np.sort(np.random.randint(1, L, (2,)))
+                children[i, idx[0]:idx[1], 0] = children[i, idx[0]:idx[1], 0] + np.random.randint(-1, 2, (np.diff(idx)))
                 # apply bounds if given
                 if bounds is not None:
                     children[i, 1:L, :] = np.clip(children[i, 1:L, :], bounds[:, 0], bounds[:, 1])
             elif p[i] == 2:
                 # Exploitation Mechanism
                 # Apply moving average filter to child
-                children[i, 1:L-1, 0] = moving_average(children[i, :, 0], 3)
+                children[i, 1:L - 1, 0] = moving_average(children[i, :, 0], 3)
         return children
 
     def _survival(self, solutions, *args):
         rankings = args[0]
         fitnesses = args[1]
         # Add the indices of the top k rankings until the length of the indices >= N.
-        sur_idx =[]
+        sur_idx = []
         k = 0
         while len(sur_idx) < self._n:
             sur_idx += rankings[k]
