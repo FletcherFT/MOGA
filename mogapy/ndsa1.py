@@ -75,6 +75,10 @@ def crowding_distance(rankings, fitnesses):
         D[r] = d.sum(axis=-1)
     return D
 
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
 
 class NDSA1(Solver):
     """This class implements Non-Dominated Sorting Algorithm for Genetic Algorithm."""
@@ -122,7 +126,7 @@ class NDSA1(Solver):
             elif p[i] == 1:
                 # Pick 2 or more parents
                 pidx = np.random.choice(range(self._n), size=(np.random.randint(2, self._n+1, 1)[0], 1), replace=False)
-                # Get the mean of the parents chromosone
+                # Get the mean of the parents chromosome
                 children[i, 1:solutions.shape[1]-1, :] = np.mean(solutions[pidx, 1:solutions.shape[1]-1, :], axis=0, dtype=np.int).squeeze()
         return children
 
@@ -131,7 +135,7 @@ class NDSA1(Solver):
         or by random signed increment vector (exploration)."""
         children = solutions.copy()
         N, L, Dim = children.shape
-        p = np.random.randint(0, 2, N)
+        p = np.random.randint(0, 3, N)
         for i in range(N):
             if p[i] == 0:
                 # Exploitation Mechanism
@@ -148,6 +152,10 @@ class NDSA1(Solver):
                 # apply bounds if given
                 if bounds is not None:
                     children[i, 1:L, :] = np.clip(children[i, 1:L, :], bounds[:, 0], bounds[:, 1])
+            elif p[i] == 2:
+                # Exploitation Mechanism
+                # Apply moving average filter to child
+                children[i, 1:L-1, 0] = moving_average(children[i, :, 0], 3)
         return children
 
     def _survival(self, solutions, *args):
