@@ -5,9 +5,10 @@ from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.animation import FFMpegWriter
-from shutil import which
+
 # TODO For some reason, ffmpeg_path can't be found by shutil.which("ffmpeg")
-plt.rcParams['animation.ffmpeg_path'] = 'C:\\Users\\fletho\\ffmpeg-4.2.2-win64-static\\ffmpeg-4.2.2-win64-static\\bin\\ffmpeg'
+plt.rcParams[
+    'animation.ffmpeg_path'] = 'C:\\Users\\fletho\\ffmpeg-4.2.2-win64-static\\ffmpeg-4.2.2-win64-static\\bin\\ffmpeg'
 
 
 class ResultsManager(FFMpegWriter):
@@ -47,12 +48,12 @@ class ResultsManager(FFMpegWriter):
                         ax.xaxis.set_ticks_position('bottom')
                 # Label the diagonal subplots...
                 for i, label in enumerate(names):
-                   self._axes[i, i].annotate(label, (0.5, 0.5), xycoords='axes fraction',
-                                             ha='center', va='center')
+                    self._axes[i, i].annotate(label, (0.5, 0.5), xycoords='axes fraction',
+                                              ha='center', va='center')
                 # Turn on the proper x or y axes ticks.
                 for i, j in zip(range(numvars), itertools.cycle((-1, 0))):
-                   self._axes[j, i].xaxis.set_visible(True)
-                   self._axes[i, j].yaxis.set_visible(True)
+                    self._axes[j, i].xaxis.set_visible(True)
+                    self._axes[i, j].yaxis.set_visible(True)
                 # Plot the data.
                 for i, j in zip(*np.triu_indices_from(self._axes, k=1)):
                     for x, y in [(i, j), (j, i)]:
@@ -109,6 +110,7 @@ class ResultPlotter(FFMpegWriter):
         self._F = None
         self._ax = None
         self._p = []
+        self._i = 0
         self.flag = False
         if len(kwargs):
             self._fname = kwargs.pop("outfile")
@@ -116,6 +118,7 @@ class ResultPlotter(FFMpegWriter):
             super().__init__(**kwargs)
 
     def update(self, solutions, cost):
+        self._i += 1
         if self._F is None:
             self._F, self._ax = plt.subplots()
             self._ax.quiver(cost[:, :, 0], cost[:, :, 1], cost[:, :, 2], cost[:, :, 3])
@@ -127,5 +130,6 @@ class ResultPlotter(FFMpegWriter):
             for i, solution in enumerate(solutions):
                 self._p[i].set_xdata(solution[:, 0])
                 self._p[i].set_ydata(solution[:, 1])
+        self._F.suptitle("Generation {:15d}".format(self._i))
         if self.flag:
             self.grab_frame()
