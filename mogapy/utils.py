@@ -91,3 +91,21 @@ class ResultsManager:
         with open(self._log, "a") as f:
             writer = csv.writer(f, delimeter=',')
             writer.writerow(A)
+
+
+class ResultPlotter:
+    def __init__(self):
+        self._F = None
+        self._ax = None
+        self._p = []
+
+    def update(self, solutions, cost):
+        if self._F is None:
+            self._F, self._ax = plt.subplots()
+            self._ax.quiver(cost[:, :, 0], cost[:, :, 1], cost[:, :, 2], cost[:, :, 3])
+            for solution in solutions:
+                self._p += plt.plot(solution[:, 0], solution[:, 1])
+        else:
+            for i, solution in enumerate(solutions):
+                self._p[i].set_xdata(solution[:, 0])
+                self._p[i].set_ydata(solution[:, 1])
