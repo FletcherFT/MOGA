@@ -4,7 +4,20 @@ from pathlib import Path
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.animation import FFMpegWriter
+from matplotlib import cbook
+import subprocess
+import logging
+import sys
+import time
+plt.rcParams['animation.ffmpeg_path'] = 'C:\\Users\\fletho\\ffmpeg-4.2.2-win64-static\\ffmpeg-4.2.2-win64-static\\bin\\ffmpeg'
 
+
+if sys.platform == 'win32':
+    subprocess_creation_flags = CREATE_NO_WINDOW = 0x08000000
+else:
+    # Apparently None won't work here
+    subprocess_creation_flags = 0
 
 class ResultsManager:
     def __init__(self):
@@ -93,11 +106,16 @@ class ResultsManager:
             writer.writerow(A)
 
 
-class ResultPlotter:
-    def __init__(self):
+class ResultPlotter(FFMpegWriter):
+    def __init__(self, **kwargs):
         self._F = None
         self._ax = None
         self._p = []
+        self._flag = False
+        if len(kwargs):
+            self._fname = kwargs.pop("outfile")
+            self._flag = True
+            super().__init__(**kwargs)
 
     def update(self, solutions, cost):
         if self._F is None:
@@ -105,7 +123,23 @@ class ResultPlotter:
             self._ax.quiver(cost[:, :, 0], cost[:, :, 1], cost[:, :, 2], cost[:, :, 3])
             for solution in solutions:
                 self._p += plt.plot(solution[:, 0], solution[:, 1])
+            self.setup(self._F, outfile=self._fname)
         else:
             for i, solution in enumerate(solutions):
                 self._p[i].set_xdata(solution[:, 0])
                 self._p[i].set_ydata(solution[:, 1])
+        if self._flag:
+            self.grab_frame()
+
+    # def _run(self):
+    #     # Uses subprocess to call the program for assembling frames into a
+    #     # movie file.  *args* returns the sequence of command line arguments
+    #     # from a few configuration options.
+    #     command = self._args()
+    #     _log = logging.getLogger(__name__)
+    #     _log.info('MovieWriter._run: running command: %s',
+    #               cbook._pformat_subprocess(command))
+    #     PIPE = subprocess.PIPE
+    #     self._proc = subprocess.Popen(
+    #         command, stdin=PIPE, stdout=PIPE, stderr=PIPE,
+    #         creationflags=subprocess_creation_flags, shell=True)
