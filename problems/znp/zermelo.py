@@ -84,13 +84,13 @@ if __name__ == "__main__":
     # The velocity vector field, comprised of u and v components
     # u component varies with y only
     # v component is constant 0
-    V = np.stack((GRID_X, np.zeros((DEPTH, WIDTH))), axis=2)
+    V = np.stack((GRID_Y, np.zeros((DEPTH, WIDTH))), axis=2)
     # Number of solutions
-    N = 100
+    N = 50
     # Initialise the solutions array, alleles for the moment are just random elements in X
-    chromosones = np.stack((np.random.randint(0, WIDTH, (N, DEPTH), np.int),
+    chromosomes = np.stack((np.random.randint(0, WIDTH, (N, DEPTH), np.int),
                             repmat(np.expand_dims(np.arange(DEPTH), 0), N, 1)), axis=2)
-    chromosones[0, :, 0] = START
+    chromosomes[0, :, 0] = START
     # Define bounds
     bounds = np.array([[0, WIDTH - 1],
                        [0, DEPTH - 1]])
@@ -101,9 +101,9 @@ if __name__ == "__main__":
     b = np.array([[[START, 0],
                    [FINISH, 0]]])
     # Enforce starting X condition
-    chromosones[:, 0, 0] = START
+    chromosomes[:, 0, 0] = START
     # Enforce finishing X condition
-    chromosones[:, -1, 0] = FINISH
+    chromosomes[:, -1, 0] = FINISH
     # The Solver Class
     solver = ndsa1.NDSA1(N, fitness=fitness)
     # The Logger Class
@@ -115,6 +115,8 @@ if __name__ == "__main__":
     # Number of generations
     for i in range(10000):
         print("Iteration {:04d}".format(i + 1))
-        chromosones, fitnesses = solver.update(chromosones, V=V, bounds=bounds, lineq=(A, b))
-        logger.update(fitnesses, ["Distance", "Energy"], linestyle="None", marker=".", markersize=10, color="green")
-        sol.update(chromosones, COST)
+        chromosomes, fitnesses = solver.update(chromosomes, V=V, bounds=bounds, lineq=(A, b))
+        #logger.update(fitnesses, ["Distance", "Energy"], linestyle="None", marker=".", markersize=10, color="green")
+        #sol.update(chromosomes, COST)
+    logger.update(fitnesses, ["Distance", "Energy"], linestyle="None", marker=".", markersize=10, color="green")
+    sol.update(chromosomes, COST)
