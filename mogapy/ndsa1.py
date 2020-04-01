@@ -90,7 +90,7 @@ class NDSA1(Solver):
         super().__init__(popsize, **kwargs)
 
     def _selection(self, solutions, *args):
-        """Values are drawn based on rank"""
+        """Values are drawn based on rank (roulette wheel selection)"""
         rankings = args[0]
         # Unroll the indices into an ordered list according to rank
         ordered = np.array([j for i in rankings for j in i])
@@ -114,7 +114,7 @@ class NDSA1(Solver):
     def _xover(self, solutions):
         """Generate children by 2 point crossover"""
         children = solutions.copy()
-        p = np.random.randint(0, 2, self._n)
+        p = np.random.randint(0, 4, self._n)
         for i in range(self._n):
             # Exploitation and Exploration by recombination
             if p[i] == 0:
@@ -127,8 +127,19 @@ class NDSA1(Solver):
                                axis=0).squeeze()
                 # Replace child indices with parent 2's indices
                 children[i, cidx[0]:cidx[1]] = solutions[pidx[1], cidx[0]:cidx[1]]
-            # Exploitation and Exploration by mean averaging
+            # Exploration by Seeking Minimum
             elif p[i] == 1:
+                # Pick two different parents
+                pidx = np.random.choice(range(self._n), size=(2, 1), replace=False)
+                # Find the minimum and assign to the child
+                children[i, :, :] = np.min(solutions[pidx, :, :], axis=0).squeeze()
+            elif p[i] == 2:
+                # Pick two different parents
+                pidx = np.random.choice(range(self._n), size=(2, 1), replace=False)
+                # Find the maximum and assign to the child
+                children[i, :, :] = np.max(solutions[pidx, :, :], axis=0).squeeze()
+            # Exploitation and Exploration by mean averaging
+            elif p[i] == 3:
                 # Pick 2 or more parents
                 pidx = np.random.choice(range(self._n), size=(np.random.randint(2, self._n + 1, 1)[0], 1),
                                         replace=False)
@@ -155,7 +166,10 @@ class NDSA1(Solver):
                 # mutate the child by by adding a vector of integers in range [-1, 1] to a segment
                 # Get the segment
                 idx = np.sort(np.random.randint(1, L, (2,)))
-                children[i, idx[0]:idx[1], 0] = children[i, idx[0]:idx[1], 0] + np.random.randint(-1, 2, (np.diff(idx)))
+                # Pick a magnitude
+                mag = np.random.randint(1, L, 1)
+                children[i, idx[0]:idx[1], 0] = children[i, idx[0]:idx[1], 0] + np.random.randint(-mag, mag + 1,
+                                                                                                  (np.diff(idx)))
                 # apply bounds if given
                 if bounds is not None:
                     children[i, 1:L, :] = np.clip(children[i, 1:L, :], bounds[:, 0], bounds[:, 1])
