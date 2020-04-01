@@ -45,7 +45,7 @@ if __name__ == "__main__":
         description="Script to build and find optimal solutions for Zermelo's Navigation Problem.")
     args = parser.parse_args()
     # Build the search space
-    WIDTH = 31
+    WIDTH = 61
     DEPTH = 15
     START = 30
     FINISH = 30
@@ -59,10 +59,10 @@ if __name__ == "__main__":
     # The velocity vector field, comprised of u and v components
     # u component varies with y only
     # v component is constant 0
-    V = np.stack((GRID_Y, np.zeros((DEPTH, WIDTH))), axis=2)
-    V = np.zeros((DEPTH, WIDTH, 2))
+    V = -np.stack((GRID_Y, np.zeros((DEPTH, WIDTH))), axis=2)
+    #V = np.zeros((DEPTH, WIDTH, 2))
     # Number of solutions
-    N = 50
+    N = 20
     # Initialise the solutions array, alleles for the moment are just random elements in X
     chromosomes = np.stack((np.random.randint(0, WIDTH, (N, DEPTH), np.int),
                             repmat(np.expand_dims(np.arange(DEPTH), 0), N, 1)), axis=2)
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     # If you want a video logged, then pass FFMpegWriter keyword arguments and an outfile keyword for the video output path.
     logger = utils.ResultsManager(fps=30, outfile=str(outfile))
     # If you don't want a video logged, then don't pass arguments to ResultsManager
-    # logger = utils.ResultsManager()
+    logger = utils.ResultsManager()
     # Solution Display
     outfile = Path("./results").resolve()
     outfile.mkdir(parents=True, exist_ok=True)
@@ -100,11 +100,11 @@ if __name__ == "__main__":
     # If you want a video logged, then pass FFMpegWriter keyword arguments and an outfile keyword for the video output path.
     sol = utils.ResultPlotter(fps=30, outfile=str(outfile))
     # If you don't want a video logged, then don't pass arguments to ResultPlotter
-    # sol = utils.ResultPlotter()
+    sol = utils.ResultPlotter()
     # Vector Field
     COST = np.concatenate((np.expand_dims(GRID_X, 2), np.expand_dims(GRID_Y, 2), V), axis=2)
     # Number of generations
-    for i in range(1000):
+    for i in range(10000):
         print("Iteration {:04d}".format(i + 1))
         chromosomes, fitnesses = solver.update(chromosomes, V=V, bounds=bounds, lineq=(A, b))
         logger.update(fitnesses, ["Distance", "Energy"], linestyle="None", marker=".", markersize=10, color="green")
