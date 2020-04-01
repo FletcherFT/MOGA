@@ -126,6 +126,8 @@ class ResultPlotter(FFMpegWriter):
                 self._p += plt.plot(solution[:, 0], solution[:, 1])
             if self.flag:
                 self.setup(self._F, outfile=self._fname)
+            self._ax.set_xlabel("Horizontal Position")
+            self._ax.set_ylabel("Altitude from Sea Bottom")
         else:
             for i, solution in enumerate(solutions):
                 self._p[i].set_xdata(solution[:, 0])
