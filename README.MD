@@ -67,3 +67,8 @@ Observations:
     - M2: This is the primary contributor to exploring the solution space.
     - M3: This results in nice smooth solutions, but it appears to not promote exploration.
 - Summary: The exploitation is quite strong due to X2/X3/X4 and M3, but exploration is suffering!
+
+Recommendations
+1. Trial exchange mutation (like X1 without the segment)
+2. Modify selection fcn with k-tournament (rank and crowding distance)
+3. Keep M1, M2
