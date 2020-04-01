@@ -26,7 +26,7 @@ A python repository for implementing multi-objective genetic algorithms (MOGAs).
         2. Xover function: probably fine.
         
 ### Implementation 2
-- Branch: znp-imp3
+- Branch: znp-imp2
 - Description
     - Solutions randomly initialised (start/finish bounds enforced).
     - No seeding with straight-line solution.
