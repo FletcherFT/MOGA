@@ -72,3 +72,12 @@ Recommendations
 1. Trial exchange mutation (like X1 without the segment)
 2. Modify selection fcn with k-tournament (rank and crowding distance)
 3. Keep M1, M2
+
+### Implementation 3
+
+#### Runs
+|Run|Iterations|Search Size|Front Size|Size|Flow Type|Straight Seed|
+|---|----------|-----------|----------|----|---------|-------------|
+|1|40000|50|100|915|u=y, v=0|Yes|
+|2|40000|50|100|915|u=y, v=0|No|
+|3|40000|50|100|915|v=c, v=c|No|
