@@ -106,18 +106,28 @@ class ResultsManager(FFMpegWriter):
 
 
 class ResultPlotter(FFMpegWriter):
-    def __init__(self, **kwargs):
+    def __init__(self, n, cost, **kwargs):
         self._F = None
         self._ax = None
         self._p = []
         self._i = 0
         self.flag = False
+        self._n = n
         if len(kwargs):
             self._fname = kwargs.pop("outfile")
             self.flag = True
             super().__init__(**kwargs)
+        self._F, self._ax = plt.subplots()
+        self._ax.quiver(cost[:, :, 0], cost[:, :, 1], cost[:, :, 2], cost[:, :, 3])
+        self._L = cost.shape[0]
+        for _ in range(n):
+            self._p += self._ax.plot(0,0)
+        self._ax.set_xlabel("Horizontal Position")
+        self._ax.set_ylabel("Altitude from Sea Bottom")
+        if self.flag:
+            self.setup(self._F, outfile=self._fname)
 
-    def update(self, solutions, cost):
+    def update(self, solutions):
         self._i += 1
         if self._F is None:
             self._F, self._ax = plt.subplots()
@@ -133,5 +143,7 @@ class ResultPlotter(FFMpegWriter):
                 self._p[i].set_xdata(solution[:, 0])
                 self._p[i].set_ydata(solution[:, 1])
         self._F.suptitle("Generation {:15d}".format(self._i))
+        self._F.canvas.draw()
+        self._F.canvas.flush_events()
         if self.flag:
             self.grab_frame()
