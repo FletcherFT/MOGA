@@ -9,6 +9,18 @@ from mogapy import ndsa1, utils
 np.random.seed(42)
 
 
+def constant_V(x, y, c, theta):
+    V = np.ones((x.shape[0], x.shape[1], 2))
+    V[:,:,0] = c*np.cos(theta)
+    V[:,:,1] = c*np.sin(theta)
+    return V
+
+def linear_shear_V(x, y, m, c):
+    V = np.zeros((x.shape[0], x.shape[1], 2))
+    V[:,:,0] = m*y+c
+    return V
+
+
 def fitness(S, V, **kwargs):
     """Fitness Calculation
     Given S, V
@@ -57,10 +69,7 @@ if __name__ == "__main__":
     # GRID is a list, element 0 is the x coordinate of a tile. Element 1 is the y coordinate of a tile.
     GRID_X, GRID_Y = np.meshgrid(X, Y)
     # The velocity vector field, comprised of u and v components
-    # u component varies with y only
-    # v component is constant 0
-    V = -np.stack((GRID_Y, np.zeros((DEPTH, WIDTH))), axis=2)
-    #V = np.zeros((DEPTH, WIDTH, 2))
+    V = linear_shear_V(GRID_X, GRID_Y, 1, 0)
     # Number of solutions
     N = 20
     # Initialise the solutions array, alleles for the moment are just random elements in X
