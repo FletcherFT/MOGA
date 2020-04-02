@@ -11,13 +11,14 @@ np.random.seed(42)
 
 def constant_V(x, y, c, theta):
     V = np.ones((x.shape[0], x.shape[1], 2))
-    V[:,:,0] = c*np.cos(theta)
-    V[:,:,1] = c*np.sin(theta)
+    V[:, :, 0] = c * np.cos(theta)
+    V[:, :, 1] = c * np.sin(theta)
     return V
+
 
 def linear_shear_V(x, y, m, c):
     V = np.zeros((x.shape[0], x.shape[1], 2))
-    V[:,:,0] = m*y+c
+    V[:, :, 0] = m * y + c
     return V
 
 
@@ -45,6 +46,8 @@ def fitness(S, V, **kwargs):
     V_s = np.concatenate((u_s, v_s), axis=-1)
     # w
     w = S_prime - V_s
+    # Speed overstepping
+    w_mag = ((np.sqrt((w**2).sum(axis=2))) > 5).sum(axis=1).reshape((N,1))
     # curve integral of all solutions in S
     D = np.sqrt((np.diff(S, axis=1) ** 2).sum(axis=-1)).sum(axis=-1).reshape((N, 1))
     # energy integral of all solutions in w
@@ -70,13 +73,17 @@ if __name__ == "__main__":
     GRID_X, GRID_Y = np.meshgrid(X, Y)
     # The velocity vector field, comprised of u and v components
     V = linear_shear_V(GRID_X, GRID_Y, 1, 0)
+    # Vector Field
+    COST = np.concatenate((np.expand_dims(GRID_X, 2), np.expand_dims(GRID_Y, 2), V), axis=2)
     # Number of solutions
-    N = 20
+    N = 50
+    # Pareto Front Length
+    NP = 2*N
     # Initialise the solutions array, alleles for the moment are just random elements in X
     chromosomes = np.stack((np.random.randint(0, WIDTH, (N, DEPTH), np.int),
                             repmat(np.expand_dims(np.arange(DEPTH), 0), N, 1)), axis=2)
     # Straight line seed
-    # chromosomes[0, :, 0] = START
+    chromosomes[0, :, 0] = START
     # Define bounds
     bounds = np.array([[0, WIDTH - 1],
                        [0, DEPTH - 1]])
@@ -100,24 +107,39 @@ if __name__ == "__main__":
     # If you want a video logged, then pass FFMpegWriter keyword arguments and an outfile keyword for the video output path.
     logger = utils.ResultsManager(fps=30, outfile=str(outfile))
     # If you don't want a video logged, then don't pass arguments to ResultsManager
-    logger = utils.ResultsManager()
+    #logger = utils.ResultsManager()
     # Solution Display
     outfile = Path("./results").resolve()
     outfile.mkdir(parents=True, exist_ok=True)
     f = list(outfile.glob("sol_run*"))
     outfile = outfile.joinpath("sol_run_{:03d}.mp4".format(len(f) + 1))
     # If you want a video logged, then pass FFMpegWriter keyword arguments and an outfile keyword for the video output path.
-    sol = utils.ResultPlotter(fps=30, outfile=str(outfile))
+    sol = utils.ResultPlotter(NP, COST, fps=30, outfile=str(outfile))
     # If you don't want a video logged, then don't pass arguments to ResultPlotter
-    sol = utils.ResultPlotter()
-    # Vector Field
-    COST = np.concatenate((np.expand_dims(GRID_X, 2), np.expand_dims(GRID_Y, 2), V), axis=2)
+    #sol = utils.ResultPlotter(NP, COST)
     # Number of generations
-    for i in range(10000):
-        print("Iteration {:04d}".format(i + 1))
+    GBEST = None
+    for i in range(40000):
         chromosomes, fitnesses = solver.update(chromosomes, V=V, bounds=bounds, lineq=(A, b))
-        logger.update(fitnesses, ["Distance", "Energy"], linestyle="None", marker=".", markersize=10, color="green")
-        sol.update(chromosomes, COST)
+        if GBEST is None:
+            rankings = ndsa1.ndsa(fitnesses)
+            GBEST = chromosomes[rankings[0], :, :]
+            GFBEST = fitnesses[rankings[0], :]
+        else:
+            tmpS = np.vstack((GBEST, chromosomes))
+            tmpF = np.vstack((GFBEST, fitnesses))
+            rankings = ndsa1.ndsa(tmpF)
+            GBEST = tmpS[rankings[0], :, :]
+            GFBEST = tmpF[rankings[0], :]
+            if GBEST.shape[0] > NP:
+                d = ndsa1.crowding_distance([[0 for _ in range(GBEST.shape[0])]], GFBEST)
+                sur_idx = np.flipud(np.argsort(d))
+                sur_idx = sur_idx[:NP]
+                GBEST = GBEST[sur_idx, :, :]
+                GFBEST = GFBEST[sur_idx, :]
+        print("Iteration {:04d}\t GBEST Size: {:03d}".format(i + 1, GBEST.shape[0]))
+        sol.update(GBEST)
+        logger.update(GFBEST, ["Distance", "Energy"], linestyle="None", marker=".", markersize=10, color="green")
     if sol.flag:
         sol.finish()
     if logger.flag:
