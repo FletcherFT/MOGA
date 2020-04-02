@@ -36,7 +36,7 @@ class Solver:
         solutions with white noise added."""
         return solutions + self._m * np.random.randn()
 
-    def _xover(self, solutions):
+    def _xover(self, solutions, *args):
         """Default behaviour is just to return the solutions."""
         return solutions
 
