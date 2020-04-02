@@ -174,6 +174,12 @@ class NDSA1(Solver):
                 if bounds is not None:
                     children[i, 1:L, :] = np.clip(children[i, 1:L, :], bounds[:, 0], bounds[:, 1])
             elif p[i] == 2:
+                # Standard Exchange Mutation
+                # Get two elements
+                idx = np.random.randint(1, L, (2,))
+                # Exchange them
+                children[i, idx, 0] = children[i, np.flipud(idx), 0]
+            elif p[i] == 3:
                 # Exploitation Mechanism
                 # Apply moving average filter to child
                 children[i, 1:L - 1, 0] = moving_average(children[i, :, 0], 3)
