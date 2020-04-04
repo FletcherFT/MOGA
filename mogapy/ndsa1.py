@@ -3,7 +3,7 @@ import numpy as np
 from mogapy.solver import Solver
 
 
-def ndsa2(fitnesses, constraints):
+def cndsa2(fitnesses, constraints):
     """Take in an MxN array of fitnesses and an MxO array of constraints, rank according to level of constrained
     non-dominance.
     Input:
@@ -26,27 +26,83 @@ def ndsa2(fitnesses, constraints):
     # For every solution, check if it dominates the rest
     for i in range(M):
         # select solution p
-        p = fitnesses[i, :]
+        #p = fitnesses[i, :]
+        p = constraints[i, :]
         for j in range(i + 1, M):
             # select solution q
-            q = fitnesses[j, :]
-            # If p dominates q
-            if np.all(p <= q) and np.any(p < q):
+            #q = fitnesses[j, :]
+            q = constraints[j, :]
+            # There are three cases of constrained-domination p is feasible and q is not feasible: p dominates q,
+            # or vice-versa q dominates p p is feasible and q is feasible: do fitness based domination p and q are
+            # not feasible: get the normalized violation and assess: if equal then do fitness based domination If p
+            # dominates q
+            # Case One, p dominates q
+            if np.all(p == 0) and np.any(q > 0):
                 # Increase the domination counter of q
                 d[j] = d[j] + 1
                 # Add index of q to s[i]
                 s[i].append(j)
-            # If q dominates p
-            elif np.all(q <= p) and np.any(q < p):
+                # skip to next q
+                continue
+            elif np.all(q == 0) and np.any(p > 0):
                 # Increase the domination counter of p
                 d[i] = d[i] + 1
                 # Add index of p to s[j]
                 s[j].append(i)
+                # skip to next q
+                continue
+            # Case Two, p and q are feasible: sort by feasibility
+            if np.all(p == 0) and np.all(q == 0):
+                pf = fitnesses[i, :]
+                qf = fitnesses[j, :]
+                if np.all(pf <= qf) and np.any(pf < qf):
+                    # Increase the domination counter of q
+                    d[j] = d[j] + 1
+                    # Add index of q to s[i]
+                    s[i].append(j)
+                    continue
+                # If q dominates p
+                elif np.all(qf <= pf) and np.any(qf < pf):
+                    # Increase the domination counter of p
+                    d[i] = d[i] + 1
+                    # Add index of p to s[j]
+                    s[j].append(i)
+                    continue
+            # Case Three, p and q are infeasible: sort by least infeasible
+            if np.any(p > 0) and np.any(q > 0):
+                if np.less(p.sum(), q.sum()):
+                    # Increase the domination counter of q
+                    d[j] = d[j] + 1
+                    # Add index of q to s[i]
+                    s[i].append(j)
+                    continue
+                elif np.less(q.sum(), p.sum()):
+                    # Increase the domination counter of p
+                    d[i] = d[i] + 1
+                    # Add index of p to s[j]
+                    s[j].append(i)
+                    continue
+                else:
+                    pf = fitnesses[i, :]
+                    qf = fitnesses[j, :]
+                    if np.all(pf <= qf) and np.any(pf < qf):
+                        # Increase the domination counter of q
+                        d[j] = d[j] + 1
+                        # Add index of q to s[i]
+                        s[i].append(j)
+                        continue
+                    # If q dominates p
+                    elif np.all(qf <= pf) and np.any(qf < pf):
+                        # Increase the domination counter of p
+                        d[i] = d[i] + 1
+                        # Add index of p to s[j]
+                        s[j].append(i)
+                        continue
         # If solution p is non-dominated, then assign first non-dominated rank (0 indexed)
         if d[i] == 0:
             F[f].append(i)
     # Loop through solutions to find the non-dominated points
-    while len(F[f]) > 0:
+    while len(F) > f and len(F[f]) > 0:
         # For each solution in rank f
         for i in F[f]:
             # For each solution dominated by i
@@ -60,7 +116,7 @@ def ndsa2(fitnesses, constraints):
     return [i for i in F if len(i) > 0]
 
 
-def ndsa(fitnesses):
+def ndsa2(fitnesses):
     """Take in a list of fitnesses, rank according to level of non-dominatedness.
     Input:
     fitnesses: A MxN numpy array, each row is a solution, each column is a fitness variable.
@@ -100,7 +156,7 @@ def ndsa(fitnesses):
         if d[i] == 0:
             F[f].append(i)
     # Loop through solutions to find the non-dominated points
-    while len(F[f]) > 0:
+    while len(F) > f and len(F[f]) > 0:
         # For each solution in rank f
         for i in F[f]:
             # For each solution dominated by i
@@ -142,12 +198,12 @@ def moving_average(a, n=3):
 
 def k_tournament_generator(n, k):
     """Create 2*n k-tournaments with sample size n."""
-    a = np.vstack([np.random.choice(np.arange(n), size=2*k, replace=False) for _ in range(n)])
+    a = np.vstack([np.random.choice(np.arange(n), size=2 * k, replace=False) for _ in range(n)])
     b = a[:, k:]
     a = a[:, :k]
-    T = np.zeros((2*n, k), dtype=np.int)
-    T[0::2,:] = a
-    T[1::2,:] = b
+    T = np.zeros((2 * n, k), dtype=np.int)
+    T[0::2, :] = a
+    T[1::2, :] = b
     return T
 
 
@@ -166,26 +222,26 @@ class NDSA1(Solver):
         # Unroll the indices into an ordered list according to rank
         ordered = np.array([j for i in rankings for j in i])
         # Unroll the ranks
-        ranks = np.array([i for i,j in enumerate(rankings) for _ in j])
+        ranks = np.array([i for i, j in enumerate(rankings) for _ in j])
         # Get the mapping between the ranked order and the solutions
         mapping = np.argsort(ordered)
         # Mapped ranks
         mrank = ranks[mapping]
         # Generate k-tournament
-        k = np.clip(int(self._n/10), 3, self._n)
+        k = np.clip(int(self._n / 10), 3, self._n)
         T = k_tournament_generator(self._n, k)
         # Get the performance of each competitor
         r = mrank[T.flatten()].reshape(T.shape)
         d = D[T.flatten()].reshape(T.shape)
         # Perform the tournament
-        t_idx = -np.ones((2*self._n, 1), dtype=np.int)
+        t_idx = -np.ones((2 * self._n, 1), dtype=np.int)
         t_idx[:, 0] = r.argmin(axis=1)
         # Check if all competitors are of same rank
         tst = np.abs(np.diff(r, axis=1)).sum(axis=1) == 0
         # In this case perform tournament on crowding distance
         t_idx[tst, 0] = d[tst, :].argmax(axis=1)
         # winners are T indexed by t_idx
-        p_idx = T[range(2*self._n), t_idx.flatten()]
+        p_idx = T[range(2 * self._n), t_idx.flatten()]
         # parents are paired off
         return p_idx[0::2], p_idx[1::2]
 
@@ -246,7 +302,7 @@ class NDSA1(Solver):
             elif p[i] == 2:
                 # Standard Exchange Mutation
                 # Get two elements
-                idx = np.random.randint(1, L-1, (2,))
+                idx = np.random.randint(1, L - 1, (2,))
                 # Exchange them
                 children[i, idx, 0] = children[i, np.flipud(idx), 0]
             elif p[i] == 3:
@@ -282,8 +338,8 @@ class NDSA1(Solver):
             # get the indices of the solutions sorted by crowding distance.
             last_rank_idx = np.flipud(np.argsort(D)).tolist()[:to_keep]
             last_rank = [rankings[-1][i] for i in last_rank_idx]
-            to_remove = list(set(rankings[-1])-set(last_rank))
-            sur_idx = np.array(list(set(sur_idx)-set(to_remove)))
+            to_remove = list(set(rankings[-1]) - set(last_rank))
+            sur_idx = np.array(list(set(sur_idx) - set(to_remove)))
         return sur_idx
 
     def update(self, solutions, **kwargs):
@@ -292,9 +348,9 @@ class NDSA1(Solver):
         # Step 2: identify the Pareto rankings
         if self._has_constraints:
             constraints = self._constraint(solutions, **kwargs)
-            rankings = ndsa2(fitnesses, constraints)
+            rankings = cndsa2(fitnesses, constraints)
         else:
-            rankings = ndsa(fitnesses)
+            rankings = ndsa2(fitnesses)
         # Identify the crowding distance
         D = crowding_distance(rankings, fitnesses)
         # Step 3: Selection based on rank and crowding distance
@@ -309,12 +365,15 @@ class NDSA1(Solver):
         if self._has_constraints:
             c_constraints = self._constraint(children, **kwargs)
             combined_constraints = np.vstack((constraints, c_constraints))
-            rankings = ndsa2(combined_fitness, combined_constraints)
+            rankings = cndsa2(combined_fitness, combined_constraints)
         else:
-            rankings = ndsa(combined_fitness)
+            rankings = ndsa2(combined_fitness)
         # Step 7: Survival according to crowding distance and ranking
         # Previous solutions and children combined
         combined_solutions = np.vstack((solutions, children))
         # Get the indices of the survivors
         idx = self._survival(combined_solutions, rankings, combined_fitness)
-        return combined_solutions[idx, :], combined_fitness[idx, :]
+        if self._has_constraints:
+            return combined_solutions[idx, :], combined_fitness[idx, :], combined_constraints[idx, :]
+        else:
+            return combined_solutions[idx, :], combined_fitness[idx, :]
