@@ -21,6 +21,17 @@ def linear_shear_V(x, y, m, c):
     V[:, :, 0] = m * y + c
     return V
 
+def cubic_shear_V(x, y, m, c):
+    V = np.zeros((x.shape[0], x.shape[1], 2))
+    V[:, :, 0] = m * y**3 + c
+    return V
+
+def fun_shear_V(x, y, cx, cy):
+    V = np.zeros((x.shape[0], x.shape[1], 2))
+    V[:, :, 0] = (x - 1) / ((x - 1) ** 2 + y ** 2 + 0.1) - (x + 1) / ((x + 1) ** 2 + y ** 2 + 0.1) + cx
+    V[:, :, 1] = y / ((x - 1) ** 2 + y ** 2 + 0.1) - y / ((x + 1) ** 2 + y ** 2 + 0.1) + cy
+    return V
+
 
 def fitness(S, V, **kwargs):
     """Fitness Calculation
@@ -72,18 +83,21 @@ if __name__ == "__main__":
     # GRID is a list, element 0 is the x coordinate of a tile. Element 1 is the y coordinate of a tile.
     GRID_X, GRID_Y = np.meshgrid(X, Y)
     # The velocity vector field, comprised of u and v components
-    V = linear_shear_V(GRID_X, GRID_Y, 1, 0)
+    #V = linear_shear_V(GRID_X, GRID_Y, 3, 0)
+    #V = constant_V(GRID_X, GRID_Y, 1, -np.pi/4)
+    #V = cubic_shear_V(GRID_X, GRID_Y, 1, 0)
+    V = fun_shear_V(GRID_X, GRID_Y, 1, 0)
     # Vector Field
     COST = np.concatenate((np.expand_dims(GRID_X, 2), np.expand_dims(GRID_Y, 2), V), axis=2)
     # Number of solutions
     N = 50
     # Pareto Front Length
-    NP = 2*N
+    NP = N
     # Initialise the solutions array, alleles for the moment are just random elements in X
     chromosomes = np.stack((np.random.randint(0, WIDTH, (N, DEPTH), np.int),
                             repmat(np.expand_dims(np.arange(DEPTH), 0), N, 1)), axis=2)
     # Straight line seed
-    chromosomes[0, :, 0] = START
+    #chromosomes[0, :, 0] = START
     # Define bounds
     bounds = np.array([[0, WIDTH - 1],
                        [0, DEPTH - 1]])
@@ -105,21 +119,21 @@ if __name__ == "__main__":
     f = list(outfile.glob("log_run*"))
     outfile = outfile.joinpath("log_run_{:03d}.mp4".format(len(f) + 1))
     # If you want a video logged, then pass FFMpegWriter keyword arguments and an outfile keyword for the video output path.
-    logger = utils.ResultsManager(fps=30, outfile=str(outfile))
+    #logger = utils.ResultsManager(fps=60, outfile=str(outfile))
     # If you don't want a video logged, then don't pass arguments to ResultsManager
-    #logger = utils.ResultsManager()
+    logger = utils.ResultsManager()
     # Solution Display
     outfile = Path("./results").resolve()
     outfile.mkdir(parents=True, exist_ok=True)
     f = list(outfile.glob("sol_run*"))
     outfile = outfile.joinpath("sol_run_{:03d}.mp4".format(len(f) + 1))
     # If you want a video logged, then pass FFMpegWriter keyword arguments and an outfile keyword for the video output path.
-    sol = utils.ResultPlotter(NP, COST, fps=30, outfile=str(outfile))
+    #sol = utils.ResultPlotter(NP, COST, fps=60, outfile=str(outfile))
     # If you don't want a video logged, then don't pass arguments to ResultPlotter
-    #sol = utils.ResultPlotter(NP, COST)
+    sol = utils.ResultPlotter(NP, COST)
     # Number of generations
     GBEST = None
-    for i in range(40000):
+    for i in range(3000):
         chromosomes, fitnesses = solver.update(chromosomes, V=V, bounds=bounds, lineq=(A, b))
         if GBEST is None:
             rankings = ndsa1.ndsa(fitnesses)
