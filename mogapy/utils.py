@@ -17,6 +17,7 @@ class ResultsManager(FFMpegWriter):
         self._axes = None
         self._log = None
         self._plots = []
+        self._hist = []
         self._i = 0
         self.flag = False
         if len(kwargs):
@@ -27,7 +28,6 @@ class ResultsManager(FFMpegWriter):
     def update(self, A, names, **kwargs):
         _, numvars = A.shape
         self._i += 1
-        names.reverse()
         if self._F is None:
             self._F, self._axes = plt.subplots(nrows=numvars, ncols=numvars, figsize=(8, 8))
             self._F.suptitle("Generation {:15d}".format(self._i))
@@ -48,15 +48,20 @@ class ResultsManager(FFMpegWriter):
                         ax.xaxis.set_ticks_position('bottom')
                 # Label the diagonal subplots...
                 for i, label in enumerate(names):
-                    self._axes[i, i].annotate(label, (0.5, 0.5), xycoords='axes fraction',
-                                              ha='center', va='center')
-                # Turn on the proper x or y axes ticks.
-                for i, j in zip(range(numvars), itertools.cycle((-1, 0))):
-                    self._axes[j, i].xaxis.set_visible(True)
-                    self._axes[i, j].yaxis.set_visible(True)
+                    #self._axes[i, i].annotate(label, (0.5, 0.5), xycoords='axes fraction',
+                    #                          ha='center', va='center')
+                    #self._hist += self._axes[i, i].hist(A[:, i])
+                    self._axes[i, i].set_facecolor([0.44,0.44,0.44])
+                    self._axes[i, 0].set_ylabel(label)
+                    self._axes[-1, i].set_xlabel(label)
+                    if i > 0 and i < len(names)-1:
+                        self._axes[i, i].xaxis.set_ticks([])
+                        self._axes[i, i].yaxis.set_ticks([])
+                    self._axes[-1, i].xaxis.set_visible(True)
+                    self._axes[i, 0].yaxis.set_visible(True)
                 # Plot the data.
                 for i, j in zip(*np.triu_indices_from(self._axes, k=1)):
-                    for x, y in [(i, j), (j, i)]:
+                    for x, y in [(j, i), (i, j)]:
                         p = self._axes[x, y].plot(A[:, x], A[:, y], **kwargs)
                         self._plots += p
                 if self.flag:
@@ -73,11 +78,19 @@ class ResultsManager(FFMpegWriter):
                         self._plots[c].axes.set_xlim(xmin=A[:, x].min(), xmax=A[:, x].max())
                         self._plots[c].axes.set_ylim(ymin=A[:, y].min(), ymax=A[:, y].max())
                         c += 1
+                #for i,_ in enumerate(names):
+                #    self._axes[i, i].cla()
+                #    self._axes[i, i].hist(A[:, i])
+                self._axes[0, 0].set_xlim(xmin=A[:, 0].min(), xmax=A[:, 0].max())
+                self._axes[0, 0].set_ylim(ymin=A[:, 0].min(), ymax=A[:, 0].max())
+                self._axes[-1, -1].set_xlim(xmin=A[:, -1].min(), xmax=A[:, -1].max())
+                self._axes[-1, -1].set_ylim(ymin=A[:, -1].min(), ymax=A[:, -1].max())
             else:
                 self._plots[0].set_xdata(A)
                 self._plots[0].set_ydata(A)
                 self._plots[0].axes.set_xlim(xmin=A.min(), xmax=A.max())
                 self._plots[0].axes.set_ylim(ymin=A.min(), ymax=A.max())
+
             self._F.suptitle("Generation {:15d}".format(self._i))
         self._F.canvas.draw()
         self._F.canvas.flush_events()
