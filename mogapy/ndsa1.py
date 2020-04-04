@@ -196,10 +196,10 @@ class NDSA1(Solver):
                 # Exploitation Mechanism
                 # Apply moving average filter to child
                 children[i, 1:L - 1, 0] = moving_average(children[i, :, 0], 3)
-            elif p[i] == -1:
-                # Scramble Mechanism
-                # Just replace child with new random vector
-                children[i, 1:L - 1, 0] = np.random.randint(-L, L+1, (L-2,))
+            elif p[i] == 4:
+                # Exploration Mechanism
+                # Add or subtract an amount from the child
+                children[i, 1:L - 1, 0] = children[i, 1:L - 1, 0] + np.random.randint(-1, 2, 1)
             # apply bounds if given
             if bounds is not None:
                 children[i, 1:L, :] = np.clip(children[i, 1:L, :], bounds[:, 0], bounds[:, 1])
