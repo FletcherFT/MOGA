@@ -101,3 +101,14 @@ Recommendations
 - The solution-space could also include y-coordinates, the elements are then just a time increment.
 - Focus on constraints, then y-coordinates, then real-numbers.
 - Just a bit of extra programming work on getting zermelo to run from command-line (for easy batch testing).
+
+### Implementation 4
+
+|Run|Iterations|Search Size|Front Size|Size|Flow Type|Straight Seed|# Mutations|# XOvers|Max Allowed Velocity|
+|---|----------|-----------|----------|----|---------|-------------|-----------|--------|--------------------|
+|7|1000|50|100|915|u=y, v=0|No|5|4|inf.|
+|8|1000|50|100|915|u=y, v=0|No|5|4|10|
+|9|1000|50|100|915|u=y, v=0|No|5|4|2|
+|10|1000|50|100|915|u=c, v=c|No|5|4|2|
+|11|1000|50|100|915|u=c, v=c|No|5|4|10|
+|12|1000|50|100|915|u=c, v=c|No|5|4|inf.|
