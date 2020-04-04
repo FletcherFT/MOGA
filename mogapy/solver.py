@@ -6,11 +6,16 @@ class Solver:
     adding white noise to solutions according to user-defined fitness, survival and selection functions.
     Fitness, survival and selection functions are either expected to be overrided by inheritance, or have a
     function handle passed into the fitness, survival, and selection arguments."""
-    def __init__(self, pop_size, elitism=0.9, mutation_rate=0.02, fitness=None, survival=None, selection=None):
+    def __init__(self, pop_size, elitism=0.9, mutation_rate=0.02, fitness=None, constraint=None, survival=None, selection=None):
         assert 0 < elitism < 1, "Elitism must be bounded (0, 1). At least one solution must be survive!"
         assert 0 <= mutation_rate <= 1, "Mutation rate must be bounded [0, 1]."
         if fitness is not None:
             self._fitness = fitness
+        if constraint is not None:
+            self._constraint = constraint
+            self._has_constraints = True
+        else:
+            self._has_constraints = False
         if survival is not None:
             self._survival = survival
         if selection is not None:
@@ -54,6 +59,11 @@ class Solver:
         """Must be replaced by a function that outputs an MxN array of fitnesses."""
         raise Exception("The fitness method needs to be either overrided or a valid function handle needs to be "
                         "passed as fitness keyword during construction.")
+
+    def _constraint(self, solutions):
+        """Must be replaced by a function that outputs an MxO array of constraint violation fitnesses."""
+        raise Exception("The constraint method needs to be either overrided or a valid function handle needs to be "
+                        "passed as constraint keyword during construction.")
 
     def update(self, solutions):
         """Default behaviour is to return the next generation of solutions. Should return"""
