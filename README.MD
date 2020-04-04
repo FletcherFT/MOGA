@@ -74,10 +74,30 @@ Recommendations
 3. Keep M1, M2
 
 ### Implementation 3
+- Branch: znp-imp3
+- Description:
+    - Implemented recommendations from znp-imp2, except recommendation 3 (all mutations and xovers have been kept).
+    - Solutions achieved were as good as znp-imp2.
+    - Adding mutation 5 allows the MOGA to find extrema quickly and without the straight-line seed.
 
-#### Runs
-|Run|Iterations|Search Size|Front Size|Size|Flow Type|Straight Seed|
-|---|----------|-----------|----------|----|---------|-------------|
-|1|40000|50|100|915|u=y, v=0|Yes|
-|2|40000|50|100|915|u=y, v=0|No|
-|3|40000|50|100|915|v=c, v=c|No|
+Observations
+This table shows the parameters set for finding solutions. Adding M5 drastically reduced the number of iterations
+ (a strong mutation function). Each run has a results video attached in results folder.
+ 
+|Run|Iterations|Search Size|Front Size|Size|Flow Type|Straight Seed|# Mutations|# XOvers|
+|---|----------|-----------|----------|----|---------|-------------|-----------|--------|
+|1|30000|50|100|915|u=y, v=0|Yes|4|4|
+|2|15000|50|100|915|u=y, v=0|No|4|4|
+|3|1000|50|100|915|u=c, v=c|No|5|4|
+|4|1000|50|100|915|u=y, v=0|No|5|4|
+|5|1000|50|100|915|u=3y, v=0|No|5|4|
+|6|3000|50|100|915|u=3y, v=0|No|5|4|
+
+Recommendations
+- The maximum control velocity of the vehicle is still unconstrained. It is directly calculated by the difference
+ between the path velocity and the flow velocity vectors for each point. Add constraints to NGSA-II algorithm using 
+ chapter 5 of [Multi-Objective Optimization Using Evolutionary Algorithms: An Introduction](https://www.egr.msu.edu/~kdeb/papers/k2011003.pdf).
+- The solution-space could be brought into the real-numbers space.
+- The solution-space could also include y-coordinates, the elements are then just a time increment.
+- Focus on constraints, then y-coordinates, then real-numbers.
+- Just a bit of extra programming work on getting zermelo to run from command-line (for easy batch testing).
