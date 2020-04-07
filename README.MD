@@ -92,6 +92,7 @@ This table shows the parameters set for finding solutions. Adding M5 drastically
 |4|1000|50|100|915|u=y, v=0|No|5|4|
 |5|1000|50|100|915|u=3y, v=0|No|5|4|
 |6|3000|50|100|915|u=3y, v=0|No|5|4|
+|7|3000|50|100|915|u=3y, v=0|No|5|4|
 
 Recommendations
 - The maximum control velocity of the vehicle is still unconstrained. It is directly calculated by the difference
@@ -103,12 +104,26 @@ Recommendations
 - Just a bit of extra programming work on getting zermelo to run from command-line (for easy batch testing).
 
 ### Implementation 4
+- Branch: znp-imp4
+- Description:
+    - Implemented maximum speed magnitude inequality constraint.
 
 |Run|Iterations|Search Size|Front Size|Size|Flow Type|Straight Seed|# Mutations|# XOvers|Max Allowed Velocity|
 |---|----------|-----------|----------|----|---------|-------------|-----------|--------|--------------------|
-|7|1000|50|100|915|u=y, v=0|No|5|4|inf.|
-|8|1000|50|100|915|u=y, v=0|No|5|4|10|
-|9|1000|50|100|915|u=y, v=0|No|5|4|2|
-|10|1000|50|100|915|u=c, v=c|No|5|4|2|
-|11|1000|50|100|915|u=c, v=c|No|5|4|10|
-|12|1000|50|100|915|u=c, v=c|No|5|4|inf.|
+|8|1000|50|100|915|u=y, v=0|No|5|4|inf.|
+|9|1000|50|100|915|u=y, v=0|No|5|4|10|
+|10|1000|50|100|915|u=y, v=0|No|5|4|2|
+|11|1000|50|100|915|u=c, v=c|No|5|4|2|
+|12|1000|50|100|915|u=c, v=c|No|5|4|10|
+|13|1000|50|100|915|u=c, v=c|No|5|4|inf.|
+
+Observations:
+    - Results for low resolution problems look good.
+    - Constant flow problem solved very fast (50 gens for 915 size search grid).
+    - Shear flow problem also solved very fast (50 - 200 gens depending on speed constraint).
+    
+Recommendations:
+    - Investigate flow functions that are stochastic.
+    - Flexibility: Allow algorithm to search in x and y (not just x).
+    - Scalability: Allow algorithm to specify t for each x(t), y(t) (currently dt is fixed).
+    - Scalability 2: Convert search space into Real Numbers for x, y and t.
