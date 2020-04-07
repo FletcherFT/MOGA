@@ -340,10 +340,11 @@ class NDSA1(Solver):
             last_rank = [rankings[-1][i] for i in last_rank_idx]
             to_remove = list(set(rankings[-1]) - set(last_rank))
             sur_idx = np.array(list(set(sur_idx) - set(to_remove)))
+            rankings[-1] = last_rank
         return sur_idx
 
     def update(self, solutions, **kwargs):
-        # Step 1: calculate fitness step has already been done.
+        # Step 1: calculate fitness step.
         fitnesses = self._fitness(solutions, **kwargs)
         # Step 2: identify the Pareto rankings
         if self._has_constraints:

@@ -110,12 +110,12 @@ Recommendations
 
 |Run|Iterations|Search Size|Front Size|Size|Flow Type|Straight Seed|# Mutations|# XOvers|Max Allowed Velocity|
 |---|----------|-----------|----------|----|---------|-------------|-----------|--------|--------------------|
-|8|1000|50|100|915|u=y, v=0|No|5|4|inf.|
-|9|1000|50|100|915|u=y, v=0|No|5|4|10|
-|10|1000|50|100|915|u=y, v=0|No|5|4|2|
-|11|1000|50|100|915|u=c, v=c|No|5|4|2|
-|12|1000|50|100|915|u=c, v=c|No|5|4|10|
-|13|1000|50|100|915|u=c, v=c|No|5|4|inf.|
+|8|1000|50|50|915|u=y, v=0|No|5|4|inf.|
+|9|1000|50|50|915|u=y, v=0|No|5|4|10|
+|10|1000|50|50|915|u=y, v=0|No|5|4|2|
+|11|1000|50|50|915|u=c, v=c|No|5|4|2|
+|12|1000|50|50|915|u=c, v=c|No|5|4|10|
+|13|1000|50|50|915|u=c, v=c|No|5|4|inf.|
 
 Observations:
     - Results for low resolution problems look good.
@@ -127,3 +127,30 @@ Recommendations:
     - Flexibility: Allow algorithm to search in x and y (not just x).
     - Scalability: Allow algorithm to specify t for each x(t), y(t) (currently dt is fixed).
     - Scalability 2: Convert search space into Real Numbers for x, y and t.
+    
+### Implementation 5
+- Branch: znp-imp5
+- Description:
+    - Implementation using a stochastic shear flow function (zermelo.stoch_func)
+    - Pareto Front across 4 dimensions:
+        1. Distance (nothing changes here)
+        2. Energy fitness broken into mean and standard deviation across n_samp number of simulations
+            - E_mu
+            - E_sig
+        3. Constraint fitness on the total feasibility of each solution across n_samp number of simulations
+
+Runs 14 - 17 have all 4 fitnesses, run 18 are deterministic (3 fitnesses), run 19-20 are stochastic (3 fitnesses, no distance)
+
+|Run|Iterations|Search Size|Front Size|Size|Flow Type|# Mutations|# XOvers|Max Allowed Velocity|
+|---|----------|-----------|----------|----|---------|-----------|--------|--------------------|
+|14|1000|50|50|915|u=**N**(y,0.01y^2), v=**N**(0,0.01y^2)|5|4|inf.|
+|15|1000|50|50|915|u=**N**(y,0.01y^2), v=**N**(0,0.01y^2)|5|4|5|
+|16|1000|50|50|915|u=**N**(y,0.25y^2), v=**N**(0,0.01y^2)|5|4|5|
+|17|1000|50|50|915|u=**N**(y,0.64y^2), v=**N**(0,0.01y^2)|5|4|5|
+|18|1000|50|50|915|u=y, v=0|5|4|5|
+|19|1000|50|50|915|u=**N**(y,0.01y^2), v=**N**(0,0.01y^2)|5|4|5|
+|20|1000|50|50|915|u=**N**(y,0.01y^2), v=**N**(0,0.01y^2)|5|4|10|
+|21|1000|50|50|915|u=**N**(-x,0.5x), v=**N**(0,0.1y^2)|5|4|30|
+|22|1000|50|50|915|u=**N**(-x,0.5x), v=**N**(0,0.1y^2)|5|4|100|
+|23|1000|50|50|915|u=**N**(-x,0.5x), v=**N**(0,0.1y^2)|5|4|50|
+|24|1000|50|50|915|u=**N**(-x,0.5x), v=**N**(0,0.1y^2)|5|4|inf.|

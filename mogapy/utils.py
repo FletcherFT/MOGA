@@ -131,7 +131,7 @@ class ResultPlotter(FFMpegWriter):
             self.flag = True
             super().__init__(**kwargs)
         self._F, self._ax = plt.subplots()
-        self._ax.quiver(cost[:, :, 0], cost[:, :, 1], cost[:, :, 2], cost[:, :, 3])
+        self._q = self._ax.quiver(cost[:, :, 0], cost[:, :, 1], cost[:, :, 2], cost[:, :, 3])
         self._L = cost.shape[0]
         for _ in range(n):
             self._p += self._ax.plot(0,0)
@@ -140,21 +140,14 @@ class ResultPlotter(FFMpegWriter):
         if self.flag:
             self.setup(self._F, outfile=self._fname)
 
-    def update(self, solutions):
+    def update(self, solutions, **kwargs):
         self._i += 1
-        if self._F is None:
-            self._F, self._ax = plt.subplots()
-            self._ax.quiver(cost[:, :, 0], cost[:, :, 1], cost[:, :, 2], cost[:, :, 3])
-            for solution in solutions:
-                self._p += plt.plot(solution[:, 0], solution[:, 1])
-            if self.flag:
-                self.setup(self._F, outfile=self._fname)
-            self._ax.set_xlabel("Horizontal Position")
-            self._ax.set_ylabel("Altitude from Sea Bottom")
-        else:
-            for i, solution in enumerate(solutions):
-                self._p[i].set_xdata(solution[:, 0])
-                self._p[i].set_ydata(solution[:, 1])
+        if "cost" in kwargs.keys():
+            self._q.set_UVC(kwargs["cost"][:,:,2], kwargs["cost"][:,:,3])
+            pass
+        for i, solution in enumerate(solutions):
+            self._p[i].set_xdata(solution[:, 0])
+            self._p[i].set_ydata(solution[:, 1])
         self._F.suptitle("Generation {:15d}".format(self._i))
         self._F.canvas.draw()
         self._F.canvas.flush_events()

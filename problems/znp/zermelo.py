@@ -6,13 +6,8 @@ from numpy.matlib import repmat
 
 from mogapy import ndsa1, utils
 
-import atexit
-
 np.random.seed(42)
 
-@atexit.register
-def goodbye():
-    print("You are now leaving the Python sector.")
 
 def constant_V(x, y, c, theta):
     V = np.ones((x.shape[0], x.shape[1], 2))
@@ -40,9 +35,85 @@ def fun_shear_V(x, y, cx, cy):
     return V
 
 
+def stoch_shear(x, y):
+    u = 0.1 * y * np.random.randn(*x.shape) + y
+    v = 0.1 * y * np.random.randn(*x.shape)
+    return u, v
+
+
+def stoch_func(ku, kv):
+    def stoch_shear(x, y):
+        #u = ku * y * np.random.randn(*x.shape) + y
+        #v = kv * y * np.random.randn(*x.shape) + 0
+        u = ku * np.random.randn(*x.shape) / (x+1) + y
+        v = kv * y**2 * np.random.randn(*x.shape) + 0
+        return u, v
+    return stoch_shear
+
+
+def stoch_constraints(S, V, maxw=0, n_samp=1, **kwargs):
+    """Constraint Fitness Calculation (with Monte Carlo Sampling)
+        Given S, V, maxw, n_samp
+        1. Calculate w n_samp times
+        2. Calculate maximum speed violation across all simulations."""
+    assert callable(V), "V must be a function for Monte Carlo Simulation"
+    # S'
+    S_prime = np.gradient(S, axis=1)
+    # Get the number, length and Dimension of solutions
+    N, L, Dim = S.shape
+    # Break out the X and Y coordinates of S
+    X = S[:, :, 0].flatten()
+    Y = S[:, :, 1].flatten()
+    V_s = [V(X, Y) for _ in range(n_samp)]
+    u_s = np.concatenate([i[0].reshape((N, L, 1)) for i in V_s],axis=2)
+    v_s = np.concatenate([i[1].reshape((N, L, 1)) for i in V_s],axis=2)
+    s_x = np.expand_dims(S_prime[:,:,0], 2)
+    w_x = s_x - u_s
+    s_y = np.expand_dims(S_prime[:,:,1], 2)
+    w_y = s_y - v_s
+    w_mag = np.sqrt((w_x**2 + w_y**2))
+    # Constraint violation score
+    c = np.where(maxw - w_mag < 0, w_mag - maxw, 0).sum(axis=1).sum(axis=1).reshape((N, 1))
+    return c
+
+
+def stoch_fitness(S, V, dt=1, n_samp=1, **kwargs):
+    """Fitness Calculation with Monte Carlo simulation
+    Given S, V and n_samp
+    1. Calculate S'
+    2. Calculate w(S) = S' + V(S)
+    3. D = int_c(S)ds
+    4. E = int_c(||w||^2)ds
+    return D, E"""
+    assert callable(V), "V must be a function for Monte Carlo Simulation"
+    # S'
+    S_prime = np.gradient(S, axis=1)
+    # Get the number, length and Dimension of solutions
+    N, L, Dim = S.shape
+    # Break out the X and Y coordinates of S
+    X = S[:, :, 0].flatten()
+    Y = S[:, :, 1].flatten()
+    V_s = [V(X, Y) for _ in range(n_samp)]
+    u_s = np.concatenate([i[0].reshape((N, L, 1)) for i in V_s], axis=2)
+    v_s = np.concatenate([i[1].reshape((N, L, 1)) for i in V_s], axis=2)
+    s_x = np.expand_dims(S_prime[:, :, 0], 2)
+    w_x = s_x - u_s
+    s_y = np.expand_dims(S_prime[:, :, 1], 2)
+    w_y = s_y - v_s
+    # curve integral of all solutions in S
+    D = np.sqrt((np.diff(S, axis=1) ** 2).sum(axis=-1)).sum(axis=-1).reshape((N, 1))
+    # energy integral of all solutions in w
+    E_mu = (w_x**2 + w_y**2).sum(axis=1).mean(axis=-1).reshape((N, 1))
+    # energy integral of all solutions in w
+    E_sig = (w_x ** 2 + w_y ** 2).sum(axis=1).std(axis=-1).reshape((N, 1))
+    return np.hstack((D, E_mu, E_sig))
+    #return np.hstack((E_mu, E_sig))
+
+
+
 def constraint(S, V, maxw=0, **kwargs):
     """Constraint Fitness Calculation
-    Given S, V
+    Given S, V, maxw
     1. Calculate w
     2. Calculate maximum speed violation."""
     # S'
@@ -52,13 +123,19 @@ def constraint(S, V, maxw=0, **kwargs):
     # Break out the X and Y coordinates of S
     X = S[:, :, 0].flatten()
     Y = S[:, :, 1].flatten()
-    # Break out the u and v components of V
-    u = V[:, :, 0]
-    v = V[:, :, 1]
-    u_s = u[Y, X].reshape((N, L, 1))
-    v_s = v[Y, X].reshape((N, L, 1))
-    # V(s)
-    V_s = np.concatenate((u_s, v_s), axis=-1)
+    if type(V) is np.ndarray:
+        # Break out the u and v components of V
+        u = V[:, :, 0]
+        v = V[:, :, 1]
+        u_s = u[Y, X].reshape((N, L, 1))
+        v_s = v[Y, X].reshape((N, L, 1))
+        # V(s)
+        V_s = np.concatenate((u_s, v_s), axis=-1)
+    elif callable(V):
+        u_s, v_s = V(X, Y)
+        u_s = u_s.reshape((N, L, 1))
+        v_s = v_s.reshape((N, L, 1))
+        V_s = np.concatenate((u_s, v_s), axis=-1)
     # w
     w = S_prime - V_s
     # Speed magnitude
@@ -84,12 +161,19 @@ def fitness(S, V, dt=1, **kwargs):
     X = S[:, :, 0].flatten()
     Y = S[:, :, 1].flatten()
     # Break out the u and v components of V
-    u = V[:, :, 0]
-    v = V[:, :, 1]
-    u_s = u[Y, X].reshape((N, L, 1))
-    v_s = v[Y, X].reshape((N, L, 1))
-    # V(s)
-    V_s = np.concatenate((u_s, v_s), axis=-1)
+    if type(V) is np.ndarray:
+        # Break out the u and v components of V
+        u = V[:, :, 0]
+        v = V[:, :, 1]
+        u_s = u[Y, X].reshape((N, L, 1))
+        v_s = v[Y, X].reshape((N, L, 1))
+        # V(s)
+        V_s = np.concatenate((u_s, v_s), axis=-1)
+    elif callable(V):
+        u_s, v_s = V(X, Y)
+        u_s = u_s.reshape((N, L, 1))
+        v_s = v_s.reshape((N, L, 1))
+        V_s = np.concatenate((u_s, v_s), axis=-1)
     # w
     w = S_prime - V_s
     # curve integral of all solutions in S
@@ -108,6 +192,20 @@ if __name__ == "__main__":
     DEPTH = 15
     START = 30
     FINISH = 30
+    # The constraints
+    maxw = np.inf
+    # Number of solutions
+    N = 50
+    # Pareto Front Length (Need to keep equal to N for now).
+    NP = N
+    # For stochastic functions, how many simulations to run
+    n_samp = 10
+    # Gain on the u std. deviation.
+    ku = 0.5
+    # Gain on the v std. deviation.
+    kv = 0.1
+    # Start up the shear function
+    shear_f = stoch_func(ku, kv)
     # X coordinate corresponds to horizontal position in water column
     X = np.array(range(WIDTH))
     # Y coordinate corresponds to altitude position in water column
@@ -116,16 +214,15 @@ if __name__ == "__main__":
     # GRID is a list, element 0 is the x coordinate of a tile. Element 1 is the y coordinate of a tile.
     GRID_X, GRID_Y = np.meshgrid(X, Y)
     # The velocity vector field, comprised of u and v components
-    #V = linear_shear_V(GRID_X, GRID_Y, 1, 0)
-    V = constant_V(GRID_X, GRID_Y, 1, -np.pi/4)
+    # V = linear_shear_V(GRID_X, GRID_Y, 1, 0)
+    # V = constant_V(GRID_X, GRID_Y, 1, -np.pi/4)
     # V = cubic_shear_V(GRID_X, GRID_Y, 1, 0)
     # V = fun_shear_V(GRID_X, GRID_Y, 1, 0)
+    V = stoch_shear(GRID_X, GRID_Y)
+    V = np.concatenate([np.expand_dims(i, 2) for i in V], axis=2)
+    #V = linear_shear_V(GRID_X, GRID_Y, 1, 0)
     # Vector Field
     COST = np.concatenate((np.expand_dims(GRID_X, 2), np.expand_dims(GRID_Y, 2), V), axis=2)
-    # Number of solutions
-    N = 50
-    # Pareto Front Length (Need to keep equal to N for now).
-    NP = N
     # Initialise the solutions array, alleles for the moment are just random elements in X
     chromosomes = np.stack((np.random.randint(0, WIDTH, (N, DEPTH), np.int),
                             repmat(np.expand_dims(np.arange(DEPTH), 0), N, 1)), axis=2)
@@ -144,10 +241,10 @@ if __name__ == "__main__":
     chromosomes[:, 0, 0] = START
     # Enforce finishing X condition
     chromosomes[:, -1, 0] = FINISH
-    # The Solver Class
-    #solver = ndsa1.NDSA1(N, fitness=fitness)
-    solver = ndsa1.NDSA1(N, fitness=fitness, constraint=constraint)
-    maxw = np.inf
+    # The Solver Class (Deterministic)
+    #solver = ndsa1.NDSA1(N, fitness=fitness, constraint=constraint)
+    # The Solver Class (Stochastic)
+    solver = ndsa1.NDSA1(N, fitness=stoch_fitness, constraint=stoch_constraints)
     # The Logger Class
     outfile = Path("./results").resolve()
     outfile.mkdir(parents=True, exist_ok=True)
@@ -166,11 +263,20 @@ if __name__ == "__main__":
     sol = utils.ResultPlotter(NP, COST, fps=30, outfile=str(outfile))
     # If you don't want a video logged, then don't pass arguments to ResultPlotter
     #sol = utils.ResultPlotter(NP, COST)
-    # Number of generations
     GBEST = None
+    rankings = None
+    fitnesses = None
     for i in range(1000):
         # Get the next generation of chromosomes, their fitnesses and constraints
-        chromosomes, fitnesses, constraints = solver.update(chromosomes, V=V, bounds=bounds, lineq=(A, b), maxw=maxw)
+        V = shear_f(GRID_X, GRID_Y)
+        V = np.concatenate([np.expand_dims(i, 2) for i in V], axis=2)
+        # Vector Field
+        COST = np.concatenate((np.expand_dims(GRID_X, 2), np.expand_dims(GRID_Y, 2), V), axis=2)
+        #V = linear_shear_V(GRID_X, GRID_Y, 1, 0)
+        # Deterministic Example
+        #chromosomes, fitnesses, constraints = solver.update(chromosomes, V=V, bounds=bounds, lineq=(A, b), maxw=maxw)
+        # Stochastic Function Example
+        chromosomes, fitnesses, constraints = solver.update(chromosomes, V=shear_f, bounds=bounds, lineq=(A, b), maxw=maxw, n_samp=n_samp)
         # If the GBEST population hasn't been initialised
         if GBEST is None:
             # Get the best performers
@@ -190,8 +296,10 @@ if __name__ == "__main__":
             GFBEST = tmpF[sur_idx, :]
             GCBEST = tmpC[sur_idx, :]
         print("Iteration {:04d}\tGBEST Size {:03d}".format(i + 1, GBEST.shape[0]))
-        sol.update(GBEST)
-        logger.update(np.hstack((GFBEST,GCBEST)), ["Distance", "Energy", "Speed Violation"], linestyle="None", marker=".", markersize=10, color="green")
+        sol.update(GBEST, cost=COST)
+        #sol.update(GBEST)
+        logger.update(np.hstack((GFBEST,GCBEST)), ["Distance","Energy Mean", "Energy Std. Dev.", "Speed Violation"], linestyle="None", marker=".", markersize=10, color="green")
+        #logger.update(np.hstack((GFBEST,GCBEST)), ["Distance", "Energy", "Speed Violation"], linestyle="None", marker=".", markersize=10, color="green")
     if sol.flag:
         sol.finish()
     if logger.flag:
